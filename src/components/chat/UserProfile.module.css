@@ -1,0 +1,284 @@
+.profilePanel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 480px;
+  max-height: 90vh;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 200;
+  overflow-y: auto;
+  color: #111827;
+}
+
+.profilePanel.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #111827;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  font-size: 24px;
+}
+
+.closeButton:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.profileContent {
+  padding: 20px;
+}
+
+.avatarSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar span {
+  font-size: 48px;
+  font-weight: 600;
+  color: white;
+}
+
+.changeAvatar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.changeAvatar:hover {
+  background: #f5f5f5;
+}
+
+.changeAvatar svg {
+  width: 20px;
+  height: 20px;
+  color: #6366f1;
+}
+
+.profileInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.infoItem {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.infoItem span {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.infoItem p {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: #111827;
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputGroup label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.inputGroup input,
+.inputGroup select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #111827;
+  font-size: 14px;
+}
+
+.inputGroup textarea {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #111827;
+  min-height: 80px;
+  resize: vertical;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.saveButton,
+.editButton {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #6366f1;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.saveButton:hover,
+.editButton:hover {
+  background: #4f46e5;
+}
+
+.cancelButton {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: transparent;
+  color: #111827;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cancelButton:hover {
+  background: #f3f4f6;
+}
+
+.signOutButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: transparent;
+  color: #ff4d4d;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.signOutButton:hover {
+  background: #fee2e2;
+}
+
+.charCount {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.available { color: #10b981; }
+.away { color: #f59e0b; }
+.donotdisturb { color: #ef4444; }
+.inameeting { color: #6366f1; }
+.offline { color: #9ca3af; }
+
+@media (max-width: 768px) {
+  .profilePanel {
+    width: 90%;
+    margin: 20px;
+  }
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.errorText {
+  color: #ef4444;
+  font-size: 13px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.changeAvatar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+} 

@@ -1,0 +1,62 @@
+.splash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #6366f1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  animation: bounce 2s infinite;
+}
+
+.icon {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  opacity: 0;
+  animation: slideUp 0.5s ease-out 0.3s forwards;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-30px);
+  }
+  60% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+} 

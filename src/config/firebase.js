@@ -1,0 +1,64 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// Remove or comment out unused analytics import
+// import { getAnalytics } from "firebase/analytics";
+import { getAuth } from "firebase/auth";
+import { getDatabase } from "firebase/database";
+import { getStorage } from "firebase/storage";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBWsFJpuWNmEjBR8uHYIdUCp8PqJCRHwLQ",
+  authDomain: "chatapplication-ae7a3.firebaseapp.com",
+  projectId: "chatapplication-ae7a3",
+  databaseURL: "https://chatapplication-ae7a3-default-rtdb.firebaseio.com",
+  storageBucket: "chatapplication-ae7a3.firebasestorage.app",
+  messagingSenderId: "617966609443",
+  appId: "1:617966609443:web:201bb591baf4bb6aa7fd96",
+  measurementId: "G-PDC7VRHKBW"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+// Remove or comment out unused analytics
+// const analytics = getAnalytics(app);
+
+// Export auth for use in login
+export const auth = getAuth(app);
+export const db = getDatabase(app);
+export const storage = getStorage(app);
+
+// Database structure reference
+/*
+/chats
+  /{chatId}
+    /messages
+      /{messageId}
+        - content: string
+        - sender: uid
+        - timestamp: number
+        - type: "text" | "image" | "file"
+        - fileUrl?: string
+        - reactions: { [uid]: string }
+    /members
+      /{uid}: boolean
+    /info
+      - name: string
+      - type: "group" | "direct"
+      - createdAt: number
+      - lastMessage: string
+      - lastMessageTime: number
+
+/users
+  /{uid}
+    - displayName: string
+    - email: string
+    - photoURL: string
+    - status: "online" | "offline"
+    - lastSeen: number
+    /chats
+      /{chatId}: boolean
+*/

@@ -1,0 +1,48 @@
+.container {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.card {
+  background: white;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  min-width: 320px;
+  max-width: 90%;
+}
+
+.card h1 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 24px;
+}
+
+.card p {
+  margin: 0 0 24px;
+  color: #6b7280;
+}
+
+.joinButton {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.joinButton:hover {
+  background: #4f46e5;
+} 

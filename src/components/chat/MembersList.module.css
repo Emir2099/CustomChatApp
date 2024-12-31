@@ -1,0 +1,102 @@
+.membersList {
+  padding: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.addButton {
+  padding: 6px 12px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.addButton:hover {
+  background: #4f46e5;
+}
+
+.addMemberSection {
+  margin-bottom: 16px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memberItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.memberInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.role {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.removeButton {
+  padding: 4px 8px;
+  background: white;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  background: #fef2f2;
+} 

@@ -1,0 +1,99 @@
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.groupInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.groupAvatar {
+  width: 48px;
+  height: 48px;
+  background: #f3f4f6;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.groupAvatar svg {
+  width: 28px;
+  height: 28px;
+  color: #6b7280;
+}
+
+.info h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.info span {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionButton {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.actionButton:hover {
+  background: #e5e7eb;
+}
+
+.actionButton svg {
+  width: 20px;
+  height: 20px;
+  color: #4b5563;
+}
+
+.actionMenu {
+  position: absolute;
+  top: 100%;
+  right: 24px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  z-index: 10;
+}
+
+.actionMenu button {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  text-align: left;
+  border: none;
+  background: none;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.actionMenu button:hover {
+  background: #f3f4f6;
+} 

@@ -1,0 +1,243 @@
+.layout {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  height: 100vh;
+  background: #f3f4f6;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+}
+
+.blurred > *:not(.profilePanel) {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.blurred::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.nav {
+  background: #1e1e1e;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  height: calc(100vh - 16px);
+  position: fixed;
+  width: 72px;
+  z-index: 10;
+  border-radius: 16px;
+  margin: 8px;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2d2d2d;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.navItems {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.navItems button {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.navItems button.active {
+  background: #6366f1;
+  color: white;
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+.profileBtn {
+  margin-top: auto;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.profileBtn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.main {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  margin-left: 72px;
+  height: 100vh;
+  width: calc(100vw - 72px);
+  padding: 8px 8px 8px 0;
+  gap: 8px;
+}
+
+.sidebar, .chatArea, .rightSidebar > div {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.rightSidebar {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  height: calc(100vh - 16px);
+}
+
+@media (max-width: 1400px) {
+  .rightSidebar {
+    display: none;
+  }
+  .main {
+    grid-template-columns: 280px 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .main {
+    margin-left: 0;
+    width: 100vw;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .chatLayout {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --accent-color: #7289da;
+    --hover-color: #2f3136;
+    --border-color: #40444b;
+  }
+}
+
+.modalContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.modalContainer.visible {
+  pointer-events: auto;
+}
+
+.blurred {
+  filter: blur(4px);
+  transition: filter 0.3s ease;
+}
+
+.blurred::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.serverIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: #6366f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  margin: 12px auto;
+}
+
+.serverIcon:hover {
+  border-radius: 12px;
+  background: #4f46e5;
+}
+
+.serverIcon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.uploadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.hiddenInput {
+  display: none;
+} 
