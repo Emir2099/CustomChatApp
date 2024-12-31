@@ -12,6 +12,11 @@ export default function InvitePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chatInfo, setChatInfo] = useState(null);
+  const [inviteLink, setInviteLink] = useState('');
+
+  useEffect(() => {
+    setInviteLink('');
+  }, [inviteId]);
 
   useEffect(() => {
     const checkInvite = async () => {

@@ -5,10 +5,9 @@ import styles from './GroupInfo.module.css';
 import { getDatabase, ref, update } from 'firebase/database';
 
 export default function GroupInfo() {
-  const { currentChat, updateGroupInfo } = useChat();
+  const { currentChat, updateGroupInfo, inviteLink, setInviteLink } = useChat();
   const [isEditing, setIsEditing] = useState(false);
   const [groupName, setGroupName] = useState(currentChat?.name || '');
-  const [inviteLink, setInviteLink] = useState('');
   
   const isAdmin = currentChat?.admins?.[auth.currentUser?.uid];
 
@@ -31,10 +30,6 @@ export default function GroupInfo() {
     });
     
     setInviteLink(link);
-  };
-
-  const copyInviteLink = () => {
-    navigator.clipboard.writeText(inviteLink);
   };
 
   if (!currentChat) return null;
@@ -102,7 +97,9 @@ export default function GroupInfo() {
         {inviteLink && (
           <div className={styles.inviteLinkContainer}>
             <input type="text" readOnly value={inviteLink} />
-            <button onClick={copyInviteLink}>Copy</button>
+            <button onClick={() => navigator.clipboard.writeText(inviteLink)}>
+              Copy
+            </button>
           </div>
         )}
       </div>

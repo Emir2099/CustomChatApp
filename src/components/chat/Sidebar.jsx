@@ -3,6 +3,7 @@ import styles from './Sidebar.module.css';
 import CreateGroupModal from './CreateGroupModal';
 import { useChat } from '../../contexts/ChatContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const formatTime = (timestamp) => {
   if (!timestamp) return '';
@@ -19,8 +20,15 @@ const formatTime = (timestamp) => {
 const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const { chats, setCurrentChat } = useChat();
+  const { chats, setCurrentChat, clearInviteLink } = useChat();
   const { auth } = useAuth();
+  const navigate = useNavigate();
+
+  const handleChatSelect = (chat) => {
+    setCurrentChat(chat);
+    clearInviteLink();
+    navigate(`/chat/${chat.id}`);
+  };
 
   const filteredChats = chats.filter(chat => 
     chat.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -58,7 +66,7 @@ const Sidebar = () => {
           <div 
             key={chat.id} 
             className={`${styles.chatItem} ${chat.unread ? styles.unread : ''}`}
-            onClick={() => setCurrentChat(chat)}
+            onClick={() => handleChatSelect(chat)}
           >
             <div className={styles.avatarContainer}>
               {chat.type === 'group' ? (

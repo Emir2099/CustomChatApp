@@ -15,6 +15,7 @@ export function ChatProvider({ children }) {
   const [members, setMembers] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [polls, setPolls] = useState([]);
+  const [inviteLink, setInviteLink] = useState('');
 
   // Listen to user's chats
   useEffect(() => {
@@ -278,6 +279,10 @@ export function ChatProvider({ children }) {
     await update(ref(db), updates);
   };
 
+  const clearInviteLink = () => {
+    setInviteLink('');
+  };
+
   return (
     <ChatContext.Provider value={{
       currentChat,
@@ -295,7 +300,10 @@ export function ChatProvider({ children }) {
       createPoll,
       votePoll,
       announcements,
-      polls
+      polls,
+      inviteLink,
+      setInviteLink,
+      clearInviteLink,
     }}>
       {children}
     </ChatContext.Provider>
