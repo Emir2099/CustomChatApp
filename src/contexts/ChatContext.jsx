@@ -346,6 +346,23 @@ export function ChatProvider({ children }) {
     }
   };
 
+  const generateInviteLink = async (chatId) => {
+    try {
+      const linkId = Math.random().toString(36).substring(2, 15);
+      
+      // Store the invite link in the chat's info object
+      await update(ref(db, `chats/${chatId}/info`), {
+        inviteLink: linkId,
+        lastUpdated: Date.now()
+      });
+      
+      return `${window.location.origin}/invite/${chatId}/${linkId}`;
+    } catch (error) {
+      console.error('Error generating invite link:', error);
+      throw error;
+    }
+  };
+
   return (
     <ChatContext.Provider value={{
       currentChat,
@@ -367,6 +384,7 @@ export function ChatProvider({ children }) {
       inviteLink,
       setInviteLink,
       clearInviteLink,
+      generateInviteLink,
     }}>
       {children}
     </ChatContext.Provider>

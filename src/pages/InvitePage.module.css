@@ -1,0 +1,121 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100vw;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.card {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  animation: slideIn 0.5s ease-out;
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
+}
+
+.card h2 {
+  margin: 0 0 1rem;
+  color: #111827;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.card p {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.button {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 0.875rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto;
+}
+
+.button:hover {
+  background: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.3);
+}
+
+.loader {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  margin: 1.5rem auto;
+  border: 4px solid #f3f3f3;
+  border-radius: 50%;
+  border-top: 4px solid #6366f1;
+  animation: spin 1s linear infinite;
+}
+
+.error {
+  color: #ef4444;
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Status icons */
+.statusIcon {
+  font-size: 3rem;
+  margin-bottom: 1.5rem;
+}
+
+.loadingIcon {
+  color: #6366f1;
+}
+
+.errorIcon {
+  color: #ef4444;
+} 

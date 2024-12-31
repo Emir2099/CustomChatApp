@@ -3,7 +3,7 @@ import Chat from './pages/Chat';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PrivateRoute from './components/PrivateRoute';
-import InvitePage from './components/chat/InvitePage';
+import InvitePage from './pages/InvitePage';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
 
@@ -16,7 +16,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route 
-              path="/invite/:groupId/:inviteId" 
+              path="/invite/:chatId/:linkId" 
               element={
                 <PrivateRoute>
                   <InvitePage />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import { auth } from '../../config/firebase';
 import styles from './GroupInfo.module.css';
@@ -8,13 +8,20 @@ export default function GroupInfo() {
   const { 
     currentChat, 
     updateGroupInfo, 
-    inviteLink, 
-    setInviteLink,
-    members
+    generateInviteLink,
+    members 
   } = useChat();
   const [isEditing, setIsEditing] = useState(false);
   const [groupName, setGroupName] = useState(currentChat?.name || '');
-  
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [currentInviteLink, setCurrentInviteLink] = useState('');
+
+  useEffect(() => {
+    setCurrentInviteLink('');
+    setCopySuccess(false);
+  }, [currentChat?.id]);
+
   const isAdmin = currentChat?.admins?.[auth.currentUser?.uid];
 
   // Get admin's photo for group avatar (or first member's photo)
@@ -30,17 +37,28 @@ export default function GroupInfo() {
     }
   };
 
-  const generateInviteLink = async () => {
-    const linkId = Math.random().toString(36).substring(2, 15);
-    const link = `${window.location.origin}/invite/${currentChat.id}/${linkId}`;
+  const handleGenerateLink = async () => {
+    if (!currentChat?.id) return;
     
-    await update(ref(getDatabase(), `chats/${currentChat.id}`), {
-      inviteLink: linkId,
-      groupId: currentChat.id,
-      lastUpdated: Date.now()
-    });
-    
-    setInviteLink(link);
+    setIsGeneratingLink(true);
+    try {
+      const newLink = await generateInviteLink(currentChat.id);
+      setCurrentInviteLink(newLink);
+    } catch (error) {
+      console.error('Error generating invite link:', error);
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(currentInviteLink);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
   };
 
   if (!currentChat) return null;
@@ -117,14 +135,27 @@ export default function GroupInfo() {
       </div>
 
       <div className={styles.inviteSection}>
-        <button onClick={generateInviteLink}>
-          Generate Invite Link
+        <button 
+          onClick={handleGenerateLink}
+          disabled={isGeneratingLink}
+          className={styles.generateButton}
+        >
+          {isGeneratingLink ? 'Generating...' : 'Generate Invite Link'}
         </button>
-        {inviteLink && (
+        
+        {currentInviteLink && (
           <div className={styles.inviteLinkContainer}>
-            <input type="text" readOnly value={inviteLink} />
-            <button onClick={() => navigator.clipboard.writeText(inviteLink)}>
-              Copy
+            <input 
+              type="text" 
+              readOnly 
+              value={currentInviteLink}
+              className={styles.inviteInput}
+            />
+            <button 
+              onClick={handleCopyLink}
+              className={styles.copyButton}
+            >
+              {copySuccess ? 'Copied!' : 'Copy'}
             </button>
           </div>
         )}
