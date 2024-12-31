@@ -4,7 +4,6 @@ import { initializeApp } from "firebase/app";
 // import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
-import { getStorage } from "firebase/storage";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -15,10 +14,8 @@ const firebaseConfig = {
   authDomain: "chatapplication-ae7a3.firebaseapp.com",
   projectId: "chatapplication-ae7a3",
   databaseURL: "https://chatapplication-ae7a3-default-rtdb.firebaseio.com",
-  storageBucket: "chatapplication-ae7a3.firebasestorage.app",
   messagingSenderId: "617966609443",
-  appId: "1:617966609443:web:201bb591baf4bb6aa7fd96",
-  measurementId: "G-PDC7VRHKBW"
+  appId: "1:617966609443:web:201bb591baf4bb6aa7fd96"
 };
 
 // Initialize Firebase
@@ -29,7 +26,6 @@ const app = initializeApp(firebaseConfig);
 // Export auth for use in login
 export const auth = getAuth(app);
 export const db = getDatabase(app);
-export const storage = getStorage(app);
 
 // Database structure reference
 /*

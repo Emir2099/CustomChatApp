@@ -71,9 +71,18 @@ const Sidebar = () => {
             <div className={styles.avatarContainer}>
               {chat.type === 'group' ? (
                 <div className={styles.groupAvatar}>
-                  <div className={styles.groupInitial}>
-                    {chat.name.charAt(0).toUpperCase()}
-                  </div>
+                  {chat.photoURL ? (
+                    <img 
+                      src={chat.photoURL === chat.thumbnailURL 
+                        ? chat.photoURL 
+                        : chat.photoURL || chat.thumbnailURL} 
+                      alt={chat.name} 
+                    />
+                  ) : (
+                    <div className={styles.groupInitial}>
+                      {chat.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <img src={chat.photoURL || '/default-avatar.png'} alt={chat.name} />
@@ -89,7 +98,7 @@ const Sidebar = () => {
                   </span>
                   {chat.type === 'group' && (
                     <span className={styles.memberCount}>
-                      {chat.memberCount || 0} members
+                      {Object.keys(chat.members || {}).length || chat.memberCount || 0} members
                     </span>
                   )}
                 </div>

@@ -6,8 +6,16 @@ import PropTypes from 'prop-types';
 
 const ChatContext = createContext();
 
+export function useChat() {
+  const context = useContext(ChatContext);
+  if (!context) {
+    throw new Error('useChat must be used within a ChatProvider');
+  }
+  return context;
+}
+
 export function ChatProvider({ children }) {
-  const [currentChat, setCurrentChat] = useState(null);
+  const [currentChat, setCurrent] = useState(null);
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
   const { user } = useAuth();
@@ -27,12 +35,17 @@ export function ChatProvider({ children }) {
       
       // Fetch chat details for each chat
       Object.keys(chatIds).forEach(chatId => {
-        const chatRef = ref(db, `chats/${chatId}/info`);
+        const chatRef = ref(db, `chats/${chatId}`);
         onValue(chatRef, (chatSnapshot) => {
           const chatData = chatSnapshot.val();
           if (chatData) {
+            const memberCount = Object.keys(chatData.members || {}).length;
             setChats(prev => {
-              const updated = [...prev.filter(c => c.id !== chatId), { id: chatId, ...chatData }];
+              const updated = [...prev.filter(c => c.id !== chatId), { 
+                id: chatId, 
+                ...chatData.info,
+                memberCount
+              }];
               return updated.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
             });
           }
@@ -83,6 +96,8 @@ export function ChatProvider({ children }) {
     const chatRef = push(ref(db, 'chats'));
     const chatId = chatRef.key;
 
+    const memberCount = members.length + 1; // +1 for the creator
+
     const chatData = {
       info: {
         name,
@@ -91,6 +106,7 @@ export function ChatProvider({ children }) {
         lastMessage: 'Group created',
         lastMessageTime: Date.now(),
         createdBy: user.uid,
+        memberCount,
         admins: {
           [user.uid]: true
         }
@@ -126,7 +142,7 @@ export function ChatProvider({ children }) {
       });
       
       await update(ref(db), updates);
-      setCurrentChat({ id: chatId, ...chatData.info });
+      setCurrent({ id: chatId, ...chatData.info });
       
       console.log('Group created successfully:', chatId);
       return chatId;
@@ -159,17 +175,21 @@ export function ChatProvider({ children }) {
 
   // Listen to current chat members
   useEffect(() => {
-    if (!currentChat) return;
-    
+    if (!currentChat) {
+      setMembers([]);
+      return;
+    }
+
     const membersRef = ref(db, `chats/${currentChat.id}/members`);
     return onValue(membersRef, async (snapshot) => {
       const membersData = snapshot.val() || {};
       const membersList = await Promise.all(
         Object.entries(membersData).map(async ([uid, data]) => {
           const userSnapshot = await get(ref(db, `users/${uid}`));
+          const userData = userSnapshot.val() || {};
           return {
             uid,
-            ...userSnapshot.val(),
+            ...userData,
             ...data
           };
         })
@@ -213,25 +233,46 @@ export function ChatProvider({ children }) {
   };
 
   const removeMember = async (chatId, memberId) => {
-    await update(ref(db), {
-      [`chats/${chatId}/members/${memberId}`]: null,
-      [`users/${memberId}/chats/${chatId}`]: null
-    });
+    try {
+      const chatRef = ref(db, `chats/${chatId}`);
+      const chatSnapshot = await get(chatRef);
+      const currentMembers = chatSnapshot.val()?.members || {};
+      const memberCount = Object.keys(currentMembers).length;
+
+      const updates = {
+        [`chats/${chatId}/members/${memberId}`]: null,
+        [`users/${memberId}/chats/${chatId}`]: null,
+        [`chats/${chatId}/info/memberCount`]: memberCount - 1
+      };
+      await update(ref(db), updates);
+    } catch (error) {
+      console.error('Error removing member:', error);
+    }
   };
 
   const addMember = async (chatId, userId) => {
-    const updates = {
-      [`chats/${chatId}/members/${userId}`]: {
-        role: 'member',
-        joinedAt: Date.now(),
-        addedBy: user.uid
-      },
-      [`users/${userId}/chats/${chatId}`]: {
-        joinedAt: Date.now(),
-        role: 'member'
-      }
-    };
-    await update(ref(db), updates);
+    try {
+      const chatRef = ref(db, `chats/${chatId}`);
+      const chatSnapshot = await get(chatRef);
+      const currentMembers = chatSnapshot.val()?.members || {};
+      const memberCount = Object.keys(currentMembers).length;
+
+      const updates = {
+        [`chats/${chatId}/members/${userId}`]: {
+          role: 'member',
+          joinedAt: Date.now(),
+          addedBy: user.uid
+        },
+        [`users/${userId}/chats/${chatId}`]: {
+          joinedAt: Date.now(),
+          role: 'member'
+        },
+        [`chats/${chatId}/info/memberCount`]: memberCount + 1
+      };
+      await update(ref(db), updates);
+    } catch (error) {
+      console.error('Error adding member:', error);
+    }
   };
 
   const createAnnouncement = async (content) => {
@@ -283,6 +324,28 @@ export function ChatProvider({ children }) {
     setInviteLink('');
   };
 
+  const setCurrentChat = async (chat) => {
+    if (chat) {
+      const chatRef = ref(db, `chats/${chat.id}`);
+      try {
+        const snapshot = await get(chatRef);
+        const chatData = snapshot.val();
+        if (chatData) {
+          const memberCount = Object.keys(chatData.members || {}).length;
+          setCurrent({
+            ...chat,
+            memberCount
+          });
+        }
+      } catch (error) {
+        console.error('Error setting current chat:', error);
+        setCurrent(null);
+      }
+    } else {
+      setCurrent(null);
+    }
+  };
+
   return (
     <ChatContext.Provider value={{
       currentChat,
@@ -312,6 +375,4 @@ export function ChatProvider({ children }) {
 
 ChatProvider.propTypes = {
   children: PropTypes.node.isRequired
-};
-
-export const useChat = () => useContext(ChatContext); 
+}; 

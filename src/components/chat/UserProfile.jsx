@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { auth, db } from '../../config/firebase';
 import { updateProfile, signOut } from 'firebase/auth';
-import { ref as dbRef, update } from 'firebase/database';
+import { ref, update } from 'firebase/database';
 import styles from './UserProfile.module.css';
 import PropTypes from 'prop-types';
 
@@ -33,7 +33,7 @@ const UserProfile = ({ show, onClose, currentUser }) => {
       await updateProfile(auth.currentUser, {
         displayName: displayName
       });
-      await update(dbRef(db, `users/${currentUser.uid}`), {
+      await update(ref(db, `users/${currentUser.uid}`), {
         displayName,
         bio,
         status,
@@ -49,7 +49,7 @@ const UserProfile = ({ show, onClose, currentUser }) => {
 
   const handleSignOut = async () => {
     try {
-      await update(dbRef(db, `users/${currentUser.uid}`), {
+      await update(ref(db, `users/${currentUser.uid}`), {
         status: 'offline',
         lastSeen: Date.now()
       });
@@ -62,59 +62,75 @@ const UserProfile = ({ show, onClose, currentUser }) => {
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    setUploadError('');
+
     setIsLoading(true);
-    
+    setUploadError('');
+
     try {
-      // Convert to base64 with more compression
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        throw new Error('File size too large. Please choose an image under 2MB.');
+      }
+
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please select an image file.');
+      }
+
       const reader = new FileReader();
-      reader.readAsDataURL(file);
-      
       reader.onload = async () => {
         try {
-          // Create temporary image for compression
           const img = new Image();
           img.src = reader.result;
           await new Promise(resolve => img.onload = resolve);
-          
-          // Create canvas for compression
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // Set smaller dimensions
-          const MAX_SIZE = 200;
-          const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
-          canvas.width = img.width * ratio;
-          canvas.height = img.height * ratio;
-          
-          // Draw and compress
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const photoURL = canvas.toDataURL('image/jpeg', 0.5); // Increased compression
-          
-          // Update database first
-          await update(dbRef(db, `users/${currentUser.uid}`), {
-            photoURL,
+
+          // Create two canvases - one for display and one for auth
+          const displayCanvas = document.createElement('canvas');
+          const authCanvas = document.createElement('canvas');
+          const displayCtx = displayCanvas.getContext('2d');
+          const authCtx = authCanvas.getContext('2d');
+
+          // Display version - larger, better quality
+          const DISPLAY_SIZE = 200;
+          const displayRatio = Math.min(DISPLAY_SIZE / img.width, DISPLAY_SIZE / img.height);
+          displayCanvas.width = img.width * displayRatio;
+          displayCanvas.height = img.height * displayRatio;
+          displayCtx.drawImage(img, 0, 0, displayCanvas.width, displayCanvas.height);
+          const displayPhotoURL = displayCanvas.toDataURL('image/jpeg', 0.7);
+
+          // Auth version - tiny thumbnail
+          const AUTH_SIZE = 32;
+          const authRatio = Math.min(AUTH_SIZE / img.width, AUTH_SIZE / img.height);
+          authCanvas.width = img.width * authRatio;
+          authCanvas.height = img.height * authRatio;
+          authCtx.drawImage(img, 0, 0, authCanvas.width, authCanvas.height);
+          const authPhotoURL = authCanvas.toDataURL('image/jpeg', 0.5);
+
+          // Update database with display version
+          await update(ref(db, `users/${auth.currentUser.uid}`), {
+            photoURL: displayPhotoURL,
+            thumbnailURL: authPhotoURL,
             lastUpdated: Date.now()
           });
-          // Then update auth profile
-          await updateProfile(auth.currentUser, { photoURL });
+
+          // Update auth profile with tiny thumbnail
+          await updateProfile(auth.currentUser, { photoURL: authPhotoURL });
           setUploadError('');
         } catch (error) {
-          console.error('Error uploading photo:', error);
-          setUploadError('Failed to upload photo. Please try again.');
+          console.error('Error processing photo:', error);
+          setUploadError('Failed to process photo. Please try again.');
         } finally {
           setIsLoading(false);
         }
       };
-      
+
       reader.onerror = () => {
         setUploadError('Failed to read file. Please try again.');
         setIsLoading(false);
       };
+
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error uploading photo:', error);
-      setUploadError('Failed to upload photo. Please try again.');
+      setUploadError(error.message);
       setIsLoading(false);
     }
   };
@@ -135,7 +151,12 @@ const UserProfile = ({ show, onClose, currentUser }) => {
             }}
           >
             {currentUser?.photoURL ? (
-              <img src={currentUser.photoURL} alt="Profile" />
+              <img 
+                src={currentUser.photoURL === currentUser.thumbnailURL 
+                  ? currentUser.photoURL 
+                  : currentUser.photoURL || currentUser.thumbnailURL} 
+                alt="Profile" 
+              />
             ) : (
               <span>{getInitials(currentUser?.email, currentUser?.displayName)}</span>
             )}

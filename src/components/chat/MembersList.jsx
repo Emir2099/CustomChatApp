@@ -54,11 +54,18 @@ export default function MembersList() {
         {members.map(member => (
           <div key={member.uid} className={styles.memberItem}>
             <div className={styles.memberInfo}>
-              <img 
-                src={member.photoURL || '/default-avatar.png'} 
-                alt={member.displayName} 
-                className={styles.avatar}
-              />
+              <div className={styles.avatar}>
+                {member.photoURL ? (
+                  <img 
+                    src={member.photoURL === member.thumbnailURL 
+                      ? member.photoURL 
+                      : member.photoURL || member.thumbnailURL} 
+                    alt={member.displayName} 
+                  />
+                ) : (
+                  <span>{getInitials(member.email, member.displayName)}</span>
+                )}
+              </div>
               <div className={styles.details}>
                 <span className={styles.name}>
                   {member.displayName}

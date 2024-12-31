@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useChat } from '../context/ChatContext';  // Adjust import path as needed
+import { useChat } from '../contexts/ChatContext';  // Fix: contexts instead of context
 import ChatLayout from '../components/chat/ChatLayout';
 
 export default function Chat() {
