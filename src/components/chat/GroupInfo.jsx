@@ -16,11 +16,20 @@ export default function GroupInfo() {
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [currentInviteLink, setCurrentInviteLink] = useState('');
+  const [creator, setCreator] = useState(null);
 
   useEffect(() => {
     setCurrentInviteLink('');
     setCopySuccess(false);
   }, [currentChat?.id]);
+
+  useEffect(() => {
+    // Find the creator from members array
+    if (currentChat?.createdBy && members.length > 0) {
+      const creatorMember = members.find(member => member.uid === currentChat.createdBy);
+      setCreator(creatorMember);
+    }
+  }, [currentChat?.createdBy, members]);
 
   const isAdmin = currentChat?.admins?.[auth.currentUser?.uid];
 
@@ -129,7 +138,11 @@ export default function GroupInfo() {
         <div className={styles.infoItem}>
           <span className={styles.label}>Created by</span>
           <span className={styles.value}>
-            {currentChat.createdBy === auth.currentUser?.uid ? 'You' : 'Another user'}
+            {creator ? (
+              currentChat.createdBy === auth.currentUser?.uid ? 
+                'You' : 
+                creator.displayName || creator.email
+            ) : 'Loading...'}
           </span>
         </div>
       </div>
