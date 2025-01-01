@@ -65,20 +65,21 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
   background: white;
 }
 
 .message {
   display: flex;
-  gap: 12px;
-  max-width: 85%;
+  flex-direction: column;
+  max-width: 70%;
   padding-right: 32px;
+  align-items: flex-start;
 }
 
 .message.sent {
   margin-left: auto;
-  flex-direction: row-reverse;
+  align-items: flex-end;
   padding-right: 0;
   padding-left: 32px;
 }
@@ -92,19 +93,47 @@
 
 .bubble {
   background: #f3f4f6;
-  padding: 12px 16px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 16px;
   border-top-left-radius: 4px;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.4;
   color: #111827;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  word-wrap: break-word;
 }
 
 .message.sent .bubble {
   background: #6366f1;
   color: white;
-  border-radius: 12px;
+  border-radius: 16px;
   border-top-right-radius: 4px;
+}
+
+.senderName {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 2px;
+  padding-left: 12px;
+}
+
+.message.sent .senderName {
+  display: none;
+}
+
+.timestamp {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 6px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.message.sent .timestamp {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .reactions {

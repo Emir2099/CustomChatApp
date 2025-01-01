@@ -39,14 +39,6 @@ export default function MembersList() {
     <div className={styles.membersList}>
       <div className={styles.header}>
         <h3>Members ({members.length})</h3>
-        {isAdmin && (
-          <button 
-            onClick={() => window.location.href = `/invite/${currentChat.id}`}
-            className={styles.addButton}
-          >
-            Add Member
-          </button>
-        )}
       </div>
 
       {/* Search box for filtering members */}

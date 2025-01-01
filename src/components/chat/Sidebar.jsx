@@ -21,7 +21,7 @@ const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const { chats, setCurrentChat, clearInviteLink } = useChat();
-  const { auth } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleChatSelect = (chat) => {
@@ -106,7 +106,7 @@ const Sidebar = () => {
               <div className={styles.messagePreview}>
                 {chat.lastMessageSender && (
                   <span className={styles.sender}>
-                    {chat.lastMessageSender === auth.currentUser?.uid ? 'You: ' : `${chat.lastMessageSenderName}: `}
+                    {chat.lastMessageSender === user?.uid ? 'You: ' : `${chat.lastMessageSenderName}: `}
                   </span>
                 )}
                 <p className={styles.lastMessage}>{chat.lastMessage}</p>

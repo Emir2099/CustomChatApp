@@ -15,6 +15,14 @@ export default function ChatArea() {
     }
   };
 
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit'
+    });
+  };
+
   if (!currentChat) {
     return (
       <div className={styles.emptyChatArea}>
@@ -70,8 +78,14 @@ export default function ChatArea() {
               message.sender === auth.currentUser?.uid ? styles.sent : ''
             }`}
           >
+            <span className={styles.senderName}>
+              {message.senderName || 'Unknown User'}
+            </span>
             <div className={styles.bubble}>
               {message.content}
+              <span className={styles.timestamp}>
+                {formatTime(message.timestamp)}
+              </span>
             </div>
           </div>
         ))}

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { ref, onValue, push, set, update, get } from 'firebase/database';
+import { ref, onValue, push, set, update, get, serverTimestamp } from 'firebase/database';
 import { useAuth } from './AuthContext';
 import PropTypes from 'prop-types';
 
@@ -56,36 +56,55 @@ export function ChatProvider({ children }) {
 
   // Listen to current chat messages
   useEffect(() => {
-    if (!currentChat) return;
+    if (!currentChat?.id) return;
 
     const messagesRef = ref(db, `chats/${currentChat.id}/messages`);
-    return onValue(messagesRef, (snapshot) => {
-      const messagesData = snapshot.val() || {};
-      const messagesList = Object.entries(messagesData).map(([id, data]) => ({
-        id,
-        ...data
-      }));
-      setMessages(messagesList.sort((a, b) => a.timestamp - b.timestamp));
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      const messagesData = snapshot.val();
+      if (messagesData) {
+        const messagesList = Object.entries(messagesData).map(([id, data]) => ({
+          id,
+          ...data,
+          // Ensure we have a fallback for sender name
+          senderName: data.senderName || 
+                     users.find(u => u.uid === data.sender)?.displayName || 
+                     users.find(u => u.uid === data.sender)?.email?.split('@')[0] ||
+                     'User'
+        }));
+        setMessages(messagesList.sort((a, b) => a.timestamp - b.timestamp));
+      } else {
+        setMessages([]);
+      }
     });
-  }, [currentChat]);
 
-  const sendMessage = async (content, type = 'text', fileUrl = null) => {
-    if (!currentChat || !user) return;
+    return () => unsubscribe();
+  }, [currentChat?.id, users]);
 
-    const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
-    const message = {
-      content,
-      sender: user.uid,
-      timestamp: Date.now(),
-      type,
-      ...(fileUrl && { fileUrl })
-    };
+  const sendMessage = async (content) => {
+    if (!currentChat?.id || !user) return;
 
-    await set(messageRef, message);
-    await update(ref(db, `chats/${currentChat.id}/info`), {
-      lastMessage: content,
-      lastMessageTime: Date.now()
-    });
+    try {
+      const messageRef = ref(db, `chats/${currentChat.id}/messages`);
+      const newMessageRef = push(messageRef);
+      
+      await set(newMessageRef, {
+        content,
+        sender: user.uid,
+        senderName: user.displayName || user.email?.split('@')[0],
+        timestamp: serverTimestamp(),
+      });
+
+      // Update last message in chat info
+      const chatRef = ref(db, `chats/${currentChat.id}/info`);
+      await update(chatRef, {
+        lastMessage: content,
+        lastMessageTime: serverTimestamp(),
+        lastMessageSender: user.uid,
+        lastMessageSenderName: user.displayName || user.email?.split('@')[0]
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   const createGroup = async (name, members) => {
