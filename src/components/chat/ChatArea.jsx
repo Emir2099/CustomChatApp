@@ -71,22 +71,31 @@ export default function ChatArea() {
       </div>
 
       <div className={styles.messageList}>
-        {messages.map(message => (
+        {messages.map((message) => (
           <div 
-            key={message.id}
+            key={message.id} 
             className={`${styles.message} ${
-              message.sender === auth.currentUser?.uid ? styles.sent : ''
+              message.type === 'announcement' ? styles.announcementMessage : 
+              message.sender === auth.currentUser?.uid ? styles.sent : styles.received
             }`}
           >
-            <span className={styles.senderName}>
-              {message.senderName || 'Unknown User'}
-            </span>
-            <div className={styles.bubble}>
-              {message.content}
-              <span className={styles.timestamp}>
-                {formatTime(message.timestamp)}
-              </span>
-            </div>
+            {message.type === 'announcement' && (
+              <>
+                <div className={styles.sender}>{message.senderName}</div>
+                <div className={styles.content}>{message.content}</div>
+                <div className={styles.timestamp}>
+                  {formatTime(message.timestamp)}
+                </div>
+              </>
+            )}
+            {!message.type && (
+              <div className={styles.bubble}>
+                {message.content}
+                <span className={styles.timestamp}>
+                  {formatTime(message.timestamp)}
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>

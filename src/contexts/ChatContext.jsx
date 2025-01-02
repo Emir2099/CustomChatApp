@@ -295,29 +295,16 @@ export function ChatProvider({ children }) {
   };
 
   const createAnnouncement = async (content) => {
-    if (!currentChat?.id || !user) return;
-
-    try {
-      const announcementRef = push(ref(db, `chats/${currentChat.id}/announcements`));
-      await set(announcementRef, {
-        content,
-        createdBy: user.uid,
-        createdAt: serverTimestamp()
-      });
-
-      // Add system message about new announcement
-      const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
-      await set(messageRef, {
-        type: 'announcement',
-        content,
-        sender: user.uid,
-        senderName: user.displayName || 'Unknown',
-        timestamp: serverTimestamp()
-      });
-    } catch (error) {
-      console.error('Error creating announcement:', error);
-      throw error;
-    }
+    if (!currentChat) return;
+    
+    const messageRef = ref(db, `chats/${currentChat.id}/messages`);
+    await push(messageRef, {
+      content,
+      sender: user.uid,
+      senderName: user.displayName,
+      timestamp: serverTimestamp(),
+      type: 'announcement'
+    });
   };
 
   const createPoll = async (question, options) => {

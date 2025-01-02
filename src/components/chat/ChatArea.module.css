@@ -303,4 +303,67 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.announcementMessage {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  color: white !important;
+  border-radius: 16px !important;
+  padding: 20px !important;
+  position: relative;
+  margin: 24px auto !important;
+  max-width: 90%;
+  box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  transform: scale(1.02);
+}
+
+.announcementMessage::before {
+  content: '📢';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #4f46e5;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.announcementMessage .sender {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.announcementMessage .content {
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 8px 0;
+  color: white;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.announcementMessage .timestamp {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 8px;
+  text-align: right;
+}
+
+/* Add a subtle hover effect */
+.announcementMessage:hover {
+  transform: scale(1.03);
+  transition: transform 0.2s ease;
 } 
