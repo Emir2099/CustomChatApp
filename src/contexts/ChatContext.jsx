@@ -295,40 +295,55 @@ export function ChatProvider({ children }) {
   };
 
   const createAnnouncement = async (content) => {
-    if (!currentChat || !user) return;
+    if (!currentChat?.id || !user) return;
 
-    const announcementRef = push(ref(db, `chats/${currentChat.id}/announcements`));
-    const announcement = {
-      content,
-      creator: user.uid,
-      timestamp: Date.now()
-    };
+    try {
+      const announcementRef = push(ref(db, `chats/${currentChat.id}/announcements`));
+      await set(announcementRef, {
+        content,
+        createdBy: user.uid,
+        createdAt: serverTimestamp()
+      });
 
-    await set(announcementRef, announcement);
-    await update(ref(db, `chats/${currentChat.id}/info`), {
-      lastMessage: `📢 ${content}`,
-      lastMessageTime: Date.now(),
-      lastMessageType: 'announcement'
-    });
+      // Add system message about new announcement
+      const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
+      await set(messageRef, {
+        type: 'announcement',
+        content,
+        sender: user.uid,
+        senderName: user.displayName || 'Unknown',
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error creating announcement:', error);
+      throw error;
+    }
   };
 
   const createPoll = async (question, options) => {
-    if (!currentChat || !user) return;
+    if (!currentChat?.id || !user) return;
 
-    const pollRef = push(ref(db, `chats/${currentChat.id}/polls`));
-    const poll = {
-      question,
-      options: options.reduce((acc, opt) => ({ ...acc, [opt]: {} }), {}),
-      creator: user.uid,
-      timestamp: Date.now()
-    };
+    try {
+      const pollRef = push(ref(db, `chats/${currentChat.id}/polls`));
+      await set(pollRef, {
+        question,
+        options: options.reduce((acc, opt) => ({...acc, [push(ref(db)).key]: opt}), {}),
+        createdBy: user.uid,
+        createdAt: serverTimestamp(),
+        votes: {}
+      });
 
-    await set(pollRef, poll);
-    await update(ref(db, `chats/${currentChat.id}/info`), {
-      lastMessage: `📊 ${question}`,
-      lastMessageTime: Date.now(),
-      lastMessageType: 'poll'
-    });
+      // Add system message about new poll
+      const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
+      await set(messageRef, {
+        type: 'system',
+        content: `${user.displayName || 'Someone'} created a poll: ${question}`,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error creating poll:', error);
+      throw error;
+    }
   };
 
   const votePoll = async (pollId, optionKey) => {

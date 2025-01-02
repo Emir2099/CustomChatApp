@@ -7,6 +7,28 @@ export default function ActionBar() {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [announcement, setAnnouncement] = useState('');
+
+  const handleCreatePoll = async (e) => {
+    e.preventDefault();
+    if (pollQuestion.trim() && pollOptions.every(opt => opt.trim())) {
+      await createPoll(pollQuestion, pollOptions.filter(opt => opt.trim()));
+      setPollQuestion('');
+      setPollOptions(['', '']);
+      setShowPollModal(false);
+    }
+  };
+
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (announcement.trim()) {
+      await createAnnouncement(announcement.trim());
+      setAnnouncement('');
+      setShowAnnouncementModal(false);
+    }
+  };
 
   if (!currentChat) return null;
 
@@ -30,8 +52,8 @@ export default function ActionBar() {
           onClick={() => setShowAnnouncementModal(true)}
           title="Make Announcement"
         >
-          <svg viewBox="0 0 24 24">
-            <path d="M18 11v2h4v-2h-4zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61zM20.4 5.6c-.4-.53-.8-1.07-1.2-1.6-.99.74-2.24 1.68-3.2 2.4.4.53.8 1.07 1.2 1.6.96-.71 2.21-1.65 3.2-2.4zM4 9c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1v4h2v-4h1l5 3V6L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34z"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
           </svg>
         </button>
         <button 
@@ -39,8 +61,8 @@ export default function ActionBar() {
           onClick={() => setShowPollModal(true)}
           title="Create Poll"
         >
-          <svg viewBox="0 0 24 24">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
           </svg>
         </button>
         <button 
@@ -69,11 +91,66 @@ export default function ActionBar() {
       )}
 
       {showPollModal && (
-        <PollModal onClose={() => setShowPollModal(false)} />
+        <div className={styles.modalOverlay} onClick={() => setShowPollModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Create Poll</h2>
+              <button className={styles.closeButton} onClick={() => setShowPollModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleCreatePoll}>
+              <input
+                type="text"
+                placeholder="Poll question"
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+              />
+              {pollOptions.map((option, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  placeholder={`Option ${index + 1}`}
+                  value={option}
+                  onChange={(e) => {
+                    const newOptions = [...pollOptions];
+                    newOptions[index] = e.target.value;
+                    setPollOptions(newOptions);
+                  }}
+                />
+              ))}
+              <div className={styles.modalActions}>
+                <button 
+                  type="button" 
+                  onClick={() => setPollOptions([...pollOptions, ''])}
+                  className={styles.secondaryButton}
+                >
+                  Add Option
+                </button>
+                <button type="submit" className={styles.primaryButton}>Create Poll</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {showAnnouncementModal && (
-        <AnnouncementModal onClose={() => setShowAnnouncementModal(false)} />
+        <div className={styles.modalOverlay} onClick={() => setShowAnnouncementModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Make Announcement</h2>
+              <button className={styles.closeButton} onClick={() => setShowAnnouncementModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleCreateAnnouncement}>
+              <textarea
+                placeholder="Write your announcement..."
+                value={announcement}
+                onChange={(e) => setAnnouncement(e.target.value)}
+              />
+              <div className={styles.modalActions}>
+                <button type="submit" className={styles.primaryButton}>Post Announcement</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

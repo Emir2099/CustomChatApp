@@ -1,45 +1,11 @@
 .actionBar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
+  justify-content: flex-end;
+  padding: 8px 16px;
   background: white;
   border-bottom: 1px solid #e5e7eb;
   position: relative;
-}
-
-.groupInfo {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.groupAvatar {
-  width: 48px;
-  height: 48px;
-  background: #f3f4f6;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.groupAvatar svg {
-  width: 28px;
-  height: 28px;
-  color: #6b7280;
-}
-
-.info h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.info span {
-  font-size: 14px;
-  color: #6b7280;
 }
 
 .actions {
@@ -52,48 +18,119 @@
   height: 40px;
   border: none;
   background: #f3f4f6;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  color: #4b5563;
 }
 
 .actionButton:hover {
   background: #e5e7eb;
+  color: #111827;
 }
 
 .actionButton svg {
   width: 20px;
   height: 20px;
-  color: #4b5563;
 }
 
-.actionMenu {
-  position: absolute;
-  top: 100%;
-  right: 24px;
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  padding: 8px;
-  z-index: 10;
+  width: 90%;
+  max-width: 480px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
-.actionMenu button {
-  display: block;
-  width: 100%;
-  padding: 8px 16px;
-  text-align: left;
-  border: none;
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.closeButton {
   background: none;
-  font-size: 14px;
-  color: #374151;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
   cursor: pointer;
-  border-radius: 6px;
 }
 
-.actionMenu button:hover {
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal input,
+.modal textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.modal textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.primaryButton {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.secondaryButton {
   background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  background: #4f46e5;
+}
+
+.secondaryButton:hover {
+  background: #e5e7eb;
 } 

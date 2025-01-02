@@ -12,9 +12,13 @@ import { getDatabase, ref, update } from 'firebase/database';
 export default function ChatLayout() {
   const [showProfile, setShowProfile] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const iconInputRef = useRef(null);
   const { user } = useAuth();
-  const { currentChat, updateChat } = useChat();
+  const { currentChat, updateChat, createPoll, createAnnouncement } = useChat();
+  const [currentView, setCurrentView] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const handleServerIconChange = async (e) => {
     const file = e.target.files?.[0];
@@ -55,6 +59,18 @@ export default function ChatLayout() {
     }
   };
 
+  const handleCreatePoll = async (pollData) => {
+    if (!currentChat) return;
+    await createPoll(pollData.question, pollData.options);
+    setShowPollModal(false);
+  };
+
+  const handleCreateAnnouncement = async (announcement) => {
+    if (!currentChat) return;
+    await createAnnouncement(announcement);
+    setShowAnnouncementModal(false);
+  };
+
   return (
     <>
       <div className={`${styles.layout} ${showProfile ? styles.blurred : ''}`}>
@@ -83,18 +99,35 @@ export default function ChatLayout() {
             </svg>
           </div>
           <div className={styles.navItems}>
-            <button className={styles.active}>
-              <span className={styles.badge}>4</span>
+            <button 
+              className={currentView === 'messages' ? styles.active : ''}
+              onClick={() => setCurrentView('messages')}
+            >
+              {unreadCount > 0 && (
+                <span className={styles.badge}>{unreadCount}</span>
+              )}
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
               </svg>
             </button>
-            <button>
+            <button 
+              className={currentView === 'announcements' ? styles.active : ''}
+              onClick={() => {
+                setCurrentView('announcements');
+                setShowAnnouncementModal(true);
+              }}
+            >
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path fill="currentColor" d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8 0h-4V4h4v2z"/>
               </svg>
             </button>
-            <button>
+            <button 
+              className={currentView === 'polls' ? styles.active : ''}
+              onClick={() => {
+                setCurrentView('polls');
+                setShowPollModal(true);
+              }}
+            >
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V18h14v-1.5c0-2.33-4.67-3.5-7-3.5z"/>
               </svg>
@@ -127,6 +160,20 @@ export default function ChatLayout() {
           currentUser={user}
         />
       </div>
+      {showPollModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowPollModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            {/* Poll modal content */}
+          </div>
+        </div>
+      )}
+      {showAnnouncementModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowAnnouncementModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            {/* Announcement modal content */}
+          </div>
+        </div>
+      )}
     </>
   );
 } 
