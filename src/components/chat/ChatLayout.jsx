@@ -19,6 +19,9 @@ export default function ChatLayout() {
   const { currentChat, updateChat, createPoll, createAnnouncement } = useChat();
   const [currentView, setCurrentView] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['']);
+  const [announcement, setAnnouncement] = useState('');
 
   const handleServerIconChange = async (e) => {
     const file = e.target.files?.[0];
@@ -161,16 +164,91 @@ export default function ChatLayout() {
         />
       </div>
       {showPollModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowPollModal(false)}>
+        <div className={styles.modalOverlay} onClick={() => {
+          setShowPollModal(false);
+          setCurrentView('');
+        }}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            {/* Poll modal content */}
+            <div className={styles.modalHeader}>
+              <h2>Create Poll</h2>
+              <button className={styles.closeButton} onClick={() => {
+                setShowPollModal(false);
+                setCurrentView('');
+              }}>×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleCreatePoll({
+                question: pollQuestion,
+                options: pollOptions
+              });
+            }}>
+              <input
+                type="text"
+                placeholder="Poll Question"
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                className={styles.input}
+              />
+              {pollOptions.map((option, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  placeholder={`Option ${index + 1}`}
+                  value={option}
+                  onChange={(e) => {
+                    const newOptions = [...pollOptions];
+                    newOptions[index] = e.target.value;
+                    setPollOptions(newOptions);
+                  }}
+                  className={styles.input}
+                />
+              ))}
+              <div className={styles.modalActions}>
+                <button
+                  type="button"
+                  onClick={() => setPollOptions([...pollOptions, ''])}
+                  className={styles.secondaryButton}
+                >
+                  Add Option
+                </button>
+                <button type="submit" className={styles.primaryButton}>
+                  Create Poll
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
       {showAnnouncementModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowAnnouncementModal(false)}>
+        <div className={styles.modalOverlay} onClick={() => {
+          setShowAnnouncementModal(false);
+          setCurrentView('');
+        }}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            {/* Announcement modal content */}
+            <div className={styles.modalHeader}>
+              <h2>Make Announcement</h2>
+              <button className={styles.closeButton} onClick={() => {
+                setShowAnnouncementModal(false);
+                setCurrentView('');
+              }}>×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateAnnouncement(announcement);
+            }}>
+              <textarea
+                placeholder="Write your announcement..."
+                value={announcement}
+                onChange={(e) => setAnnouncement(e.target.value)}
+                className={styles.textarea}
+              />
+              <div className={styles.modalActions}>
+                <button type="submit" className={styles.primaryButton}>
+                  Post Announcement
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
