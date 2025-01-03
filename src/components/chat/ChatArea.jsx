@@ -18,11 +18,46 @@ export default function ChatArea() {
   };
 
   const formatTime = (timestamp) => {
+    if (!timestamp) return '';
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit'
     });
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      });
+    }
+  };
+
+  const shouldShowDate = (message, index, messages) => {
+    if (!message.timestamp) return false;
+    
+    // For first message with timestamp
+    if (index === 0) return true;
+    
+    const currentDate = new Date(message.timestamp).toDateString();
+    const prevDate = new Date(messages[index - 1].timestamp || 0).toDateString();
+    
+    // Only show date separator if it's different from previous message's date
+    // and the current message has a valid timestamp
+    return currentDate !== prevDate && message.timestamp;
   };
 
   if (!currentChat) {
@@ -73,77 +108,87 @@ export default function ChatArea() {
       </div>
 
       <div className={styles.messageList}>
-        {messages.map((message) => (
-          <div 
-            key={message.id} 
-            className={`${styles.message} ${
-              message.type === 'poll' ? styles.pollMessage :
-              message.type === 'announcement' ? styles.announcementMessage : 
-              message.sender === user?.uid ? styles.sent : styles.received
-            }`}
-          >
-            {message.type === 'poll' && (
-              <div className={styles.pollMessage}>
-                <div className={styles.pollHeader}>
-                  <div className={styles.pollCreator}>{message.senderName}</div>
-                  <div className={styles.timestamp}>{formatTime(message.timestamp)}</div>
-                </div>
-                <div className={styles.pollQuestion}>{message.question}</div>
-                <div className={styles.pollOptions}>
-                  {Object.entries(message.options || {}).map(([optionId, option]) => {
-                    const votes = Object.keys(option.votes || {}).length;
-                    const totalVotes = Object.values(message.options || {})
-                      .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0);
-                    const percentage = totalVotes ? Math.round((votes / totalVotes) * 100) : 0;
-                    const hasVoted = option.votes && option.votes[user?.uid];
+        {messages.map((message, index) => (
+          <>
+            {shouldShowDate(message, index, messages) && (
+              <div className={styles.dateSeparator}>
+                <span>{formatDate(message.timestamp)}</span>
+              </div>
+            )}
+            <div 
+              key={message.id} 
+              className={`${styles.message} ${
+                message.type === 'poll' ? styles.pollMessage :
+                message.type === 'announcement' ? styles.announcementMessage : 
+                message.sender === user?.uid ? styles.sent : styles.received
+              }`}
+            >
+              {message.type === 'poll' && (
+                <div className={styles.pollMessage}>
+                  <div className={styles.pollHeader}>
+                    <div className={styles.pollCreator}>{message.senderName}</div>
+                    <div className={styles.timestamp}>{formatTime(message.timestamp)}</div>
+                  </div>
+                  <div className={styles.pollQuestion}>{message.question}</div>
+                  <div className={styles.pollOptions}>
+                    {Object.entries(message.options || {}).map(([optionId, option]) => {
+                      const votes = Object.keys(option.votes || {}).length;
+                      const totalVotes = Object.values(message.options || {})
+                        .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0);
+                      const percentage = totalVotes ? Math.round((votes / totalVotes) * 100) : 0;
+                      const hasVoted = option.votes && option.votes[user?.uid];
 
-                    return (
-                      <button
-                        key={optionId}
-                        className={`${styles.pollOption} ${hasVoted ? styles.voted : ''}`}
-                        onClick={() => handleVote(message.id, optionId)}
-                        disabled={Object.values(message.options || {})
-                          .some(opt => opt.votes?.[user?.uid])}
-                      >
-                        <div className={styles.pollOptionContent}>
-                          <span>{option.text}</span>
-                          <span className={styles.voteCount}>{votes} votes</span>
-                        </div>
-                        <div className={styles.pollOptionBar}>
-                          <div 
-                            className={styles.pollOptionProgress} 
-                            style={{ width: `${percentage}%` }} 
-                          />
-                          <span className={styles.pollOptionPercentage}>{percentage}%</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={optionId}
+                          className={`${styles.pollOption} ${hasVoted ? styles.voted : ''}`}
+                          onClick={() => handleVote(message.id, optionId)}
+                          disabled={Object.values(message.options || {})
+                            .some(opt => opt.votes?.[user?.uid])}
+                        >
+                          <div className={styles.pollOptionContent}>
+                            <span>{option.text}</span>
+                            <span className={styles.voteCount}>{votes} votes</span>
+                          </div>
+                          <div className={styles.pollOptionBar}>
+                            <div 
+                              className={styles.pollOptionProgress} 
+                              style={{ width: `${percentage}%` }} 
+                            />
+                            <span className={styles.pollOptionPercentage}>{percentage}%</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className={styles.pollFooter}>
+                    Total votes: {Object.values(message.options || {})
+                      .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0)}
+                  </div>
                 </div>
-                <div className={styles.pollFooter}>
-                  Total votes: {Object.values(message.options || {})
-                    .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0)}
+              )}
+              {message.type === 'announcement' && (
+                <>
+                  <div className={styles.sender}>{message.senderName}</div>
+                  <div className={styles.content}>{message.content}</div>
+                  <div className={styles.timestamp}>
+                    {formatTime(message.timestamp)}
+                  </div>
+                </>
+              )}
+              {!message.type && (
+                <div className={styles.bubble}>
+                  {message.sender !== user?.uid && (
+                    <div className={styles.senderName}>{message.senderName}</div>
+                  )}
+                  {message.content}
+                  <span className={styles.timestamp}>
+                    {formatTime(message.timestamp)}
+                  </span>
                 </div>
-              </div>
-            )}
-            {message.type === 'announcement' && (
-              <>
-                <div className={styles.sender}>{message.senderName}</div>
-                <div className={styles.content}>{message.content}</div>
-                <div className={styles.timestamp}>
-                  {formatTime(message.timestamp)}
-                </div>
-              </>
-            )}
-            {!message.type && (
-              <div className={styles.bubble}>
-                {message.content}
-                <span className={styles.timestamp}>
-                  {formatTime(message.timestamp)}
-                </span>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </>
         ))}
       </div>
 

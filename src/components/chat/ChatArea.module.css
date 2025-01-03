@@ -114,10 +114,9 @@
 
 .senderName {
   font-size: 13px;
+  color: #64748b;
+  margin-bottom: 4px;
   font-weight: 500;
-  color: #6b7280;
-  margin-bottom: 2px;
-  padding-left: 12px;
 }
 
 .message.sent .senderName {
@@ -525,4 +524,39 @@
   align-items: flex-start;
   padding-right: 32px;
   padding-left: 0;
+}
+
+.dateSeparator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 24px 0 12px;
+  position: relative;
+}
+
+.dateSeparator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #e2e8f0;
+  z-index: 0;
+}
+
+.dateSeparator span {
+  background: #f8fafc;
+  padding: 4px 12px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Adjust bubble padding for messages with sender name */
+.message.received .bubble {
+  padding-top: 8px;
 } 
