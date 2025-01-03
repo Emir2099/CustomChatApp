@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { useChat } from '../../contexts/ChatContext';
 import { auth } from '../../config/firebase';
 import styles from './ChatArea.module.css';
 
 export default function ChatArea() {
-  const { currentChat, messages, sendMessage } = useChat();
+  const { currentChat, messages, sendMessage, handleVote } = useChat();
+  const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
 
   const handleSend = (e) => {
@@ -75,10 +77,55 @@ export default function ChatArea() {
           <div 
             key={message.id} 
             className={`${styles.message} ${
+              message.type === 'poll' ? styles.pollMessage :
               message.type === 'announcement' ? styles.announcementMessage : 
-              message.sender === auth.currentUser?.uid ? styles.sent : styles.received
+              message.sender === user?.uid ? styles.sent : styles.received
             }`}
           >
+            {message.type === 'poll' && (
+              <div className={styles.pollMessage}>
+                <div className={styles.pollHeader}>
+                  <div className={styles.pollCreator}>{message.senderName}</div>
+                  <div className={styles.timestamp}>{formatTime(message.timestamp)}</div>
+                </div>
+                <div className={styles.pollQuestion}>{message.question}</div>
+                <div className={styles.pollOptions}>
+                  {Object.entries(message.options || {}).map(([optionId, option]) => {
+                    const votes = Object.keys(option.votes || {}).length;
+                    const totalVotes = Object.values(message.options || {})
+                      .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0);
+                    const percentage = totalVotes ? Math.round((votes / totalVotes) * 100) : 0;
+                    const hasVoted = option.votes && option.votes[user?.uid];
+
+                    return (
+                      <button
+                        key={optionId}
+                        className={`${styles.pollOption} ${hasVoted ? styles.voted : ''}`}
+                        onClick={() => handleVote(message.id, optionId)}
+                        disabled={Object.values(message.options || {})
+                          .some(opt => opt.votes?.[user?.uid])}
+                      >
+                        <div className={styles.pollOptionContent}>
+                          <span>{option.text}</span>
+                          <span className={styles.voteCount}>{votes} votes</span>
+                        </div>
+                        <div className={styles.pollOptionBar}>
+                          <div 
+                            className={styles.pollOptionProgress} 
+                            style={{ width: `${percentage}%` }} 
+                          />
+                          <span className={styles.pollOptionPercentage}>{percentage}%</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className={styles.pollFooter}>
+                  Total votes: {Object.values(message.options || {})
+                    .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0)}
+                </div>
+              </div>
+            )}
             {message.type === 'announcement' && (
               <>
                 <div className={styles.sender}>{message.senderName}</div>

@@ -309,36 +309,31 @@ export function ChatProvider({ children }) {
 
   const createPoll = async (question, options) => {
     if (!currentChat?.id || !user) return;
-
-    try {
-      const pollRef = push(ref(db, `chats/${currentChat.id}/polls`));
-      await set(pollRef, {
-        question,
-        options: options.reduce((acc, opt) => ({...acc, [push(ref(db)).key]: opt}), {}),
-        createdBy: user.uid,
-        createdAt: serverTimestamp(),
-        votes: {}
-      });
-
-      // Add system message about new poll
-      const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
-      await set(messageRef, {
-        type: 'system',
-        content: `${user.displayName || 'Someone'} created a poll: ${question}`,
-        timestamp: serverTimestamp()
-      });
-    } catch (error) {
-      console.error('Error creating poll:', error);
-      throw error;
-    }
+    
+    const messageRef = ref(db, `chats/${currentChat.id}/messages`);
+    await push(messageRef, {
+      type: 'poll',
+      question,
+      options: options.reduce((acc, text) => ({
+        ...acc,
+        [push(ref(db)).key]: { text, votes: {} }
+      }), {}),
+      sender: user.uid,
+      senderName: user.displayName,
+      timestamp: serverTimestamp()
+    });
   };
 
-  const votePoll = async (pollId, optionKey) => {
-    if (!currentChat || !user) return;
-
-    const updates = {};
-    updates[`chats/${currentChat.id}/polls/${pollId}/options/${optionKey}/${user.uid}`] = true;
-    await update(ref(db), updates);
+  const handleVote = async (messageId, optionId) => {
+    if (!currentChat?.id || !user) return;
+    
+    try {
+      const updates = {};
+      updates[`chats/${currentChat.id}/messages/${messageId}/options/${optionId}/votes/${user.uid}`] = true;
+      await update(ref(db), updates);
+    } catch (error) {
+      console.error('Error voting:', error);
+    }
   };
 
   const clearInviteLink = () => {
@@ -399,7 +394,7 @@ export function ChatProvider({ children }) {
       addMember,
       createAnnouncement,
       createPoll,
-      votePoll,
+      handleVote,
       announcements,
       polls,
       inviteLink,
