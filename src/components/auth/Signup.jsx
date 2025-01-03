@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile } from 'firebase/auth';
 import { auth, db } from '../../config/firebase';
 import { ref, set } from 'firebase/database';
@@ -115,7 +115,7 @@ const Signup = () => {
         </button>
         
         <div className={styles.links}>
-          <a href="/login">Already have an account? Log in</a>
+          <Link to="/login">Already have an account? Log in</Link>
         </div>
       </div>
     </div>

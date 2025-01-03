@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Chat from './pages/Chat';
 import Login from './pages/Login';
-import Register from './pages/Register';
+import Signup from './pages/Register';
 import PrivateRoute from './components/PrivateRoute';
 import InvitePage from './pages/InvitePage';
 import { AuthProvider } from './contexts/AuthContext';
@@ -14,7 +14,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/signup" element={<Signup />} />
             <Route 
               path="/invite/:chatId/:linkId" 
               element={
