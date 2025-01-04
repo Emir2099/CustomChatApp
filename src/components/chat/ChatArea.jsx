@@ -195,12 +195,12 @@ export default function ChatArea() {
       <form onSubmit={handleSend} className={styles.messageInput}>
         <input
           type="text"
-          placeholder="Type a message..."
+          placeholder="Type your message..."
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
         />
-        <button type="submit">
-          <svg viewBox="0 0 24 24">
+        <button type="submit" title="Send message">
+          <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
           </svg>
         </button>
