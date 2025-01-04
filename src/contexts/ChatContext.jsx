@@ -33,7 +33,6 @@ export function ChatProvider({ children }) {
     return onValue(userChatsRef, (snapshot) => {
       const chatIds = snapshot.val() || {};
       
-      // Fetch chat details for each chat
       Object.keys(chatIds).forEach(chatId => {
         const chatRef = ref(db, `chats/${chatId}`);
         const userLastReadRef = ref(db, `users/${user.uid}/chats/${chatId}/lastRead`);
@@ -44,12 +43,21 @@ export function ChatProvider({ children }) {
             const userLastReadSnapshot = await get(userLastReadRef);
             const lastRead = userLastReadSnapshot.val() || 0;
             
-            // Count unread messages
-            let unreadCount = 0;
+            // Count different types of unread items
+            let unreadMessages = 0;
+            let unreadAnnouncements = 0;
+            let unreadPolls = 0;
+
             if (chatData.messages) {
               Object.values(chatData.messages).forEach(msg => {
                 if (msg.timestamp > lastRead && msg.sender !== user.uid) {
-                  unreadCount++;
+                  if (msg.type === 'announcement') {
+                    unreadAnnouncements++;
+                  } else if (msg.type === 'poll') {
+                    unreadPolls++;
+                  } else {
+                    unreadMessages++;
+                  }
                 }
               });
             }
@@ -58,7 +66,9 @@ export function ChatProvider({ children }) {
               const updated = [...prev.filter(c => c.id !== chatId), { 
                 id: chatId, 
                 ...chatData.info,
-                unreadCount,
+                unreadMessages,
+                unreadAnnouncements,
+                unreadPolls,
                 memberCount: Object.keys(chatData.members || {}).length
               }];
               return updated.sort((a, b) => b.lastMessageTime - a.lastMessageTime);

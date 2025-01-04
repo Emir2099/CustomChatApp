@@ -221,11 +221,13 @@
   color: white;
 }
 
+.unreadBadges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .unreadBadge {
-  background: #6366f1;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
@@ -233,6 +235,43 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.messageBadge {
+  background: #6366f1;
+  color: white;
+}
+
+.announcementBadge {
+  background: #f43f5e;
+  color: white;
+}
+
+.pollBadge {
+  background: #10b981;
+  color: white;
+}
+
+/* Add tooltips for badges */
+.badgeWithTooltip {
+  position: relative;
+}
+
+.badgeWithTooltip:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: #1e293b;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 10;
+  margin-top: 4px;
 }
 
 .chatInfo {
