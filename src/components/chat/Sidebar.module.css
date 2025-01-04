@@ -117,8 +117,36 @@
 .chatItem.active {
   border-color: #6366f1;
   background: #fafaff;
+  position: relative;
+  overflow: hidden;
 }
 
+.chatItem.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(99, 102, 241, 0.1) 25%,
+    rgba(139, 92, 246, 0.1) 50%,
+    rgba(99, 102, 241, 0.1) 75%,
+    transparent 100%
+  );
+  animation: gradientSlide 2s ease infinite;
+  pointer-events: none;
+}
+
+@keyframes gradientSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Keep the existing active indicator */
 .chatItem.active::before {
   content: '';
   position: absolute;
