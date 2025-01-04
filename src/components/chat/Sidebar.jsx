@@ -20,12 +20,12 @@ const formatTime = (timestamp) => {
 const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const { chats, setCurrentChat, clearInviteLink } = useChat();
+  const { chats, currentChat, clearInviteLink, handleChatSelect } = useChat();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const handleChatSelect = (chat) => {
-    setCurrentChat(chat);
+  const onChatSelect = async (chat) => {
+    await handleChatSelect(chat);
     clearInviteLink();
     navigate(`/chat/${chat.id}`);
   };
@@ -71,8 +71,10 @@ const Sidebar = () => {
         {filteredChats.map(chat => (
           <div 
             key={chat.id} 
-            className={`${styles.chatItem} ${chat.unread ? styles.unread : ''}`}
-            onClick={() => handleChatSelect(chat)}
+            className={`${styles.chatItem} 
+              ${chat.unreadCount > 0 ? styles.unread : ''} 
+              ${currentChat?.id === chat.id ? styles.active : ''}`}
+            onClick={() => onChatSelect(chat)}
           >
             <div className={styles.avatarContainer}>
               {chat.type === 'group' ? (
@@ -93,30 +95,23 @@ const Sidebar = () => {
               ) : (
                 <img src={chat.photoURL || '/default-avatar.png'} alt={chat.name} />
               )}
-              {chat.unread && <span className={styles.unreadBadge}>{chat.unreadCount}</span>}
             </div>
+            
             <div className={styles.chatInfo}>
               <div className={styles.chatHeader}>
                 <h3>{chat.name}</h3>
-                <div className={styles.metadata}>
-                  <span className={styles.time}>
-                    {formatTime(chat.lastMessageTime)}
-                  </span>
-                  {chat.type === 'group' && (
-                    <span className={styles.memberCount}>
-                      {Object.keys(chat.members || {}).length || chat.memberCount || 0} members
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className={styles.messagePreview}>
-                {chat.lastMessageSender && (
-                  <span className={styles.sender}>
-                    {chat.lastMessageSender === user?.uid ? 'You: ' : `${chat.lastMessageSenderName}: `}
+                {chat.type === 'group' && (
+                  <span className={styles.memberCount}>
+                    {chat.memberCount || 0} members
                   </span>
                 )}
-                <p className={styles.lastMessage}>{chat.lastMessage}</p>
               </div>
+              
+              {chat.unreadCount > 0 && (
+                <span className={styles.unreadBadge}>
+                  {chat.unreadCount}
+                </span>
+              )}
             </div>
           </div>
         ))}

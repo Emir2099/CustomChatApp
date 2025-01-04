@@ -15,7 +15,7 @@ export function useChat() {
 }
 
 export function ChatProvider({ children }) {
-  const [currentChat, setCurrent] = useState(null);
+  const [currentChat, setCurrentChat] = useState(null);
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
   const { user } = useAuth();
@@ -36,15 +36,30 @@ export function ChatProvider({ children }) {
       // Fetch chat details for each chat
       Object.keys(chatIds).forEach(chatId => {
         const chatRef = ref(db, `chats/${chatId}`);
-        onValue(chatRef, (chatSnapshot) => {
+        const userLastReadRef = ref(db, `users/${user.uid}/chats/${chatId}/lastRead`);
+        
+        onValue(chatRef, async (chatSnapshot) => {
           const chatData = chatSnapshot.val();
           if (chatData) {
-            const memberCount = Object.keys(chatData.members || {}).length;
+            const userLastReadSnapshot = await get(userLastReadRef);
+            const lastRead = userLastReadSnapshot.val() || 0;
+            
+            // Count unread messages
+            let unreadCount = 0;
+            if (chatData.messages) {
+              Object.values(chatData.messages).forEach(msg => {
+                if (msg.timestamp > lastRead && msg.sender !== user.uid) {
+                  unreadCount++;
+                }
+              });
+            }
+
             setChats(prev => {
               const updated = [...prev.filter(c => c.id !== chatId), { 
                 id: chatId, 
                 ...chatData.info,
-                memberCount
+                unreadCount,
+                memberCount: Object.keys(chatData.members || {}).length
               }];
               return updated.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
             });
@@ -54,54 +69,49 @@ export function ChatProvider({ children }) {
     });
   }, [user]);
 
-  // Listen to current chat messages
+  // Listen to messages for the current chat
   useEffect(() => {
-    if (!currentChat?.id) return;
+    if (!currentChat?.id || !user) return;
 
     const messagesRef = ref(db, `chats/${currentChat.id}/messages`);
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
-      const messagesData = snapshot.val();
-      if (messagesData) {
-        const messagesList = Object.entries(messagesData).map(([id, data]) => ({
-          id,
-          ...data,
-          // Ensure we have a fallback for sender name
-          senderName: data.senderName || 
-                     users.find(u => u.uid === data.sender)?.displayName || 
-                     users.find(u => u.uid === data.sender)?.email?.split('@')[0] ||
-                     'User'
-        }));
-        setMessages(messagesList.sort((a, b) => a.timestamp - b.timestamp));
-      } else {
-        setMessages([]);
-      }
+    return onValue(messagesRef, async (snapshot) => {
+      const messages = snapshot.val() || {};
+      
+      // Mark messages as read when loaded
+      await markChatAsRead(currentChat.id);
+      
+      setMessages(Object.entries(messages).map(([id, message]) => ({
+        id,
+        ...message
+      })).sort((a, b) => a.timestamp - b.timestamp));
     });
-
-    return () => unsubscribe();
-  }, [currentChat?.id, users]);
+  }, [currentChat?.id, user]);
 
   const sendMessage = async (content) => {
     if (!currentChat?.id || !user) return;
 
     try {
-      const messageRef = ref(db, `chats/${currentChat.id}/messages`);
-      const newMessageRef = push(messageRef);
-      
-      await set(newMessageRef, {
+      const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
+      const message = {
         content,
         sender: user.uid,
-        senderName: user.displayName || user.email?.split('@')[0],
+        senderName: user.displayName || user.email,
         timestamp: serverTimestamp(),
-      });
+      };
 
-      // Update last message in chat info
-      const chatRef = ref(db, `chats/${currentChat.id}/info`);
-      await update(chatRef, {
-        lastMessage: content,
-        lastMessageTime: serverTimestamp(),
-        lastMessageSender: user.uid,
-        lastMessageSenderName: user.displayName || user.email?.split('@')[0]
-      });
+      await set(messageRef, message);
+      
+      // Update chat info
+      const updates = {};
+      updates[`chats/${currentChat.id}/info/lastMessage`] = content;
+      updates[`chats/${currentChat.id}/info/lastMessageTime`] = serverTimestamp();
+      updates[`chats/${currentChat.id}/info/lastMessageSender`] = user.uid;
+      updates[`chats/${currentChat.id}/info/lastMessageSenderName`] = user.displayName || user.email;
+      
+      // Update sender's lastRead
+      updates[`users/${user.uid}/chats/${currentChat.id}/lastRead`] = serverTimestamp();
+      
+      await update(ref(db), updates);
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -161,7 +171,7 @@ export function ChatProvider({ children }) {
       });
       
       await update(ref(db), updates);
-      setCurrent({ id: chatId, ...chatData.info });
+      setCurrentChat({ id: chatId, ...chatData.info });
       
       console.log('Group created successfully:', chatId);
       return chatId;
@@ -340,28 +350,6 @@ export function ChatProvider({ children }) {
     setInviteLink('');
   };
 
-  const setCurrentChat = async (chat) => {
-    if (chat) {
-      const chatRef = ref(db, `chats/${chat.id}`);
-      try {
-        const snapshot = await get(chatRef);
-        const chatData = snapshot.val();
-        if (chatData) {
-          const memberCount = Object.keys(chatData.members || {}).length;
-          setCurrent({
-            ...chat,
-            memberCount
-          });
-        }
-      } catch (error) {
-        console.error('Error setting current chat:', error);
-        setCurrent(null);
-      }
-    } else {
-      setCurrent(null);
-    }
-  };
-
   const generateInviteLink = async (chatId) => {
     try {
       const linkId = Math.random().toString(36).substring(2, 15);
@@ -376,6 +364,36 @@ export function ChatProvider({ children }) {
     } catch (error) {
       console.error('Error generating invite link:', error);
       throw error;
+    }
+  };
+
+  // Update markChatAsRead function
+  const markChatAsRead = async (chatId) => {
+    if (!user || !chatId) return;
+    
+    try {
+      const updates = {};
+      updates[`users/${user.uid}/chats/${chatId}/lastRead`] = serverTimestamp();
+      await update(ref(db), updates);
+      
+      // Update local state to reflect read status
+      setChats(prev => 
+        prev.map(chat => 
+          chat.id === chatId 
+            ? { ...chat, unreadCount: 0 }
+            : chat
+        )
+      );
+    } catch (error) {
+      console.error('Error marking chat as read:', error);
+    }
+  };
+
+  // Update handleChatSelect function
+  const handleChatSelect = async (chat) => {
+    setCurrentChat(chat);
+    if (chat) {
+      await markChatAsRead(chat.id);
     }
   };
 
@@ -401,6 +419,8 @@ export function ChatProvider({ children }) {
       setInviteLink,
       clearInviteLink,
       generateInviteLink,
+      markChatAsRead,
+      handleChatSelect,
     }}>
       {children}
     </ChatContext.Provider>
