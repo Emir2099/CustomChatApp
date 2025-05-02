@@ -51,6 +51,8 @@ export function ChatProvider({ children }) {
   const prevChatsRef = useRef({});
   const markingChatAsReadRef = useRef(false);
   const currentChatRef = useRef(null);
+  const membersCache = useRef(new Map());
+  const prevMembersRef = useRef([]);
   
   // Memoize functions to prevent them from changing on each render
   const clearInviteLink = useCallback(() => {
@@ -90,16 +92,26 @@ export function ChatProvider({ children }) {
 
   // Memoize handleChatSelect
   const handleChatSelect = useCallback(async (chat) => {
-    if (!chat || isEqual(chat, currentChatRef.current)) return;
+    if (!chat) return;
     
-    currentChatRef.current = chat;
-    setCurrentChat(chat);
+    // Deep clone the chat object to ensure we break reference equality
+    const chatClone = JSON.parse(JSON.stringify(chat));
+    
+    // Only update if the chat is different from current one
+    if (isEqual(chatClone, currentChatRef.current)) return;
+    
+    // Store a clone to avoid reference comparisons
+    currentChatRef.current = chatClone;
+    setCurrentChat(chatClone);
     
     if (chat && chat.id) {
-      // Use setTimeout to break the synchronous call chain
-      setTimeout(() => {
+      // Debounce the markChatAsRead call to prevent race conditions
+      const timeoutId = setTimeout(() => {
         markChatAsRead(chat.id);
-      }, 0);
+      }, 100);
+      
+      // Store the timeout ID to clear it if needed
+      return () => clearTimeout(timeoutId);
     }
   }, [markChatAsRead]);
 
@@ -384,6 +396,7 @@ export function ChatProvider({ children }) {
   useEffect(() => {
     if (!currentChat) {
       setMembers([]);
+      prevMembersRef.current = [];
       return;
     }
     
@@ -399,8 +412,23 @@ export function ChatProvider({ children }) {
         
         const membersList = await Promise.all(
           Object.entries(membersData).map(async ([uid, data]) => {
+            // Check cache first to avoid unnecessary database reads
+            if (membersCache.current.has(uid)) {
+              const cachedUserData = membersCache.current.get(uid);
+              // Combine with the latest member data
+              return {
+                uid,
+                ...cachedUserData,
+                ...data
+              };
+            }
+            
             const userSnapshot = await get(ref(db, `users/${uid}`));
             const userData = userSnapshot.val() || {};
+            
+            // Cache the user data
+            membersCache.current.set(uid, userData);
+            
             return {
               uid,
               ...userData,
@@ -409,7 +437,14 @@ export function ChatProvider({ children }) {
           })
         );
         
-        setMembers(membersList);
+        // Use structural equality to prevent unnecessary updates
+        const membersListJSON = JSON.stringify(membersList);
+        const prevMembersJSON = JSON.stringify(prevMembersRef.current);
+        
+        if (membersListJSON !== prevMembersJSON) {
+          prevMembersRef.current = membersList;
+          setMembers(membersList);
+        }
       } catch (error) {
         console.error('Error fetching members:', error);
       }

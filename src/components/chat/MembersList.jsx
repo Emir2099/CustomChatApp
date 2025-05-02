@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import { auth } from '../../config/firebase';
+import { db } from '../../config/firebase';
+import { ref, onValue } from 'firebase/database';
 import styles from './MembersList.module.css';
 
 const getInitials = (email, displayName) => {
@@ -15,11 +17,79 @@ const getInitials = (email, displayName) => {
   return email[0].toUpperCase();
 };
 
+// Map Firebase status to display status
+const mapStatusToUserStatus = (status) => {
+  if (!status) return 'offline';
+  
+  switch(status.toLowerCase()) {
+    case 'available':
+      return 'online';
+    case 'away':
+      return 'away';
+    case 'do not disturb':
+      return 'busy';
+    case 'in a meeting':
+      return 'busy';
+    case 'offline':
+      return 'offline';
+    default:
+      return 'offline';
+  }
+};
+
 export default function MembersList() {
   const { currentChat, members, removeMember } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTooltip, setActiveTooltip] = useState(null);
+  const tooltipRef = useRef(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [enhancedMembers, setEnhancedMembers] = useState([]);
+  const userListenersRef = useRef({});
   
   const isAdmin = currentChat?.admins?.[auth.currentUser?.uid];
+
+  // Set up real-time listeners for each member
+  useEffect(() => {
+    if (!members || members.length === 0) return;
+    
+    // Clean up previous listeners
+    Object.values(userListenersRef.current).forEach(unsubscribe => unsubscribe());
+    userListenersRef.current = {};
+    
+    // Create new member data with real-time updates
+    const newEnhancedMembers = [...members];
+    
+    // Set up listeners for each member
+    members.forEach((member, index) => {
+      const userRef = ref(db, `users/${member.uid}`);
+      const unsubscribe = onValue(userRef, (snapshot) => {
+        const userData = snapshot.val();
+        if (userData) {
+          // Create updated member data
+          const updatedMember = {
+            ...member,
+            ...userData
+          };
+          
+          // Update the member in the array
+          newEnhancedMembers[index] = updatedMember;
+          setEnhancedMembers([...newEnhancedMembers]);
+        }
+      });
+      
+      // Store the unsubscribe function
+      userListenersRef.current[member.uid] = unsubscribe;
+    });
+    
+    // Initialize with current data
+    setEnhancedMembers(newEnhancedMembers);
+    
+    // Cleanup function
+    return () => {
+      Object.values(userListenersRef.current).forEach(unsubscribe => unsubscribe());
+      userListenersRef.current = {};
+    };
+  }, [members]);
 
   const handleRemoveMember = async (memberId) => {
     if (window.confirm('Are you sure you want to remove this member?')) {
@@ -27,8 +97,27 @@ export default function MembersList() {
     }
   };
 
+  const handleMouseEnter = (member, e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    
+    // Calculate position - show on right side if there's room, otherwise left
+    const showOnRight = rect.right + 250 < viewportWidth;
+    
+    setTooltipPosition({
+      x: showOnRight ? rect.right + 10 : rect.left - 250 - 10,
+      y: rect.top,
+    });
+    
+    setActiveTooltip(member);
+  };
+
+  const handleMouseLeave = () => {
+    setActiveTooltip(null);
+  };
+
   // Filter members based on search query
-  const filteredMembers = members.filter(member => 
+  const filteredMembers = enhancedMembers.filter(member => 
     member.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -58,42 +147,117 @@ export default function MembersList() {
       </div>
 
       <div className={styles.members}>
-        {filteredMembers.map(member => (
-          <div key={member.uid} className={styles.memberItem}>
-            <div className={styles.memberInfo}>
-              <div className={styles.avatar}>
-                {member.photoURL ? (
-                  <img 
-                    src={member.photoURL === member.thumbnailURL 
-                      ? member.photoURL 
-                      : member.photoURL || member.thumbnailURL} 
-                    alt={member.displayName} 
-                  />
-                ) : (
-                  <span>{getInitials(member.email, member.displayName)}</span>
-                )}
+        {filteredMembers.map(member => {
+          const status = mapStatusToUserStatus(member.status);
+          return (
+            <div 
+              key={member.uid} 
+              className={`${styles.memberItem} ${styles[status]}`}
+              onMouseEnter={(e) => handleMouseEnter(member, e)}
+              onMouseLeave={handleMouseLeave}
+            >
+              <div className={styles.rippleContainer}>
+                <div className={`${styles.ripple} ${styles[`ripple-${status}`]}`}></div>
               </div>
-              <div className={styles.details}>
-                <span className={styles.name}>
-                  {member.displayName || member.email}
-                  {member.uid === auth.currentUser?.uid && ' (You)'}
-                </span>
-                <span className={styles.role}>
-                  {currentChat.admins?.[member.uid] ? 'Admin' : 'Member'}
-                </span>
+              <div className={styles.memberInfo}>
+                <div className={`${styles.avatar} ${styles[`status-${status}`]}`}>
+                  {member.photoURL ? (
+                    <img 
+                      src={member.photoURL === member.thumbnailURL 
+                        ? member.photoURL 
+                        : member.photoURL || member.thumbnailURL} 
+                      alt={member.displayName} 
+                    />
+                  ) : (
+                    <span>{getInitials(member.email, member.displayName)}</span>
+                  )}
+                  <div className={`${styles.statusIndicator} ${styles[`status-${status}`]}`}></div>
+                </div>
+                <div className={styles.details}>
+                  <span className={styles.name}>
+                    {member.displayName || member.email}
+                    {member.uid === auth.currentUser?.uid && ' (You)'}
+                  </span>
+                  <span className={styles.role}>
+                    {currentChat.admins?.[member.uid] ? 'Admin' : 'Member'}
+                  </span>
+                </div>
               </div>
+              {isAdmin && member.uid !== auth.currentUser?.uid && (
+                <button
+                  onClick={() => handleRemoveMember(member.uid)}
+                  className={styles.removeButton}
+                >
+                  Remove
+                </button>
+              )}
             </div>
-            {isAdmin && member.uid !== auth.currentUser?.uid && (
-              <button
-                onClick={() => handleRemoveMember(member.uid)}
-                className={styles.removeButton}
-              >
-                Remove
-              </button>
+          );
+        })}
+      </div>
+
+      {activeTooltip && (
+        <div 
+          className={styles.userTooltip}
+          ref={tooltipRef}
+          style={{
+            position: 'fixed',
+            top: `${tooltipPosition.y}px`,
+            left: `${tooltipPosition.x}px`,
+          }}
+        >
+          <div className={`${styles.tooltipHeader} ${styles[`tooltip-${mapStatusToUserStatus(activeTooltip.status)}`]}`}>
+            <div className={styles.tooltipAvatar}>
+              {activeTooltip.photoURL ? (
+                <img src={activeTooltip.photoURL} alt={activeTooltip.displayName} />
+              ) : (
+                <span>{getInitials(activeTooltip.email, activeTooltip.displayName)}</span>
+              )}
+            </div>
+            <h3>{activeTooltip.displayName || activeTooltip.email}</h3>
+          </div>
+          <div className={styles.tooltipBody}>
+            <div className={styles.tooltipInfo}>
+              <span className={styles.tooltipLabel}>Email:</span>
+              <span className={styles.tooltipValue}>{activeTooltip.email}</span>
+            </div>
+            <div className={styles.tooltipInfo}>
+              <span className={styles.tooltipLabel}>Status:</span>
+              <span className={`${styles.tooltipValue} ${styles[`text-${mapStatusToUserStatus(activeTooltip.status)}`]}`}>
+                {activeTooltip.status || 'Offline'}
+              </span>
+            </div>
+            {activeTooltip.bio && (
+              <div className={styles.tooltipInfo}>
+                <span className={styles.tooltipLabel}>Bio:</span>
+                <span className={styles.tooltipValue}>{activeTooltip.bio}</span>
+              </div>
+            )}
+            <div className={styles.tooltipInfo}>
+              <span className={styles.tooltipLabel}>Role:</span>
+              <span className={styles.tooltipValue}>
+                {currentChat.admins?.[activeTooltip.uid] ? 'Admin' : 'Member'}
+              </span>
+            </div>
+            {activeTooltip.joinedAt && (
+              <div className={styles.tooltipInfo}>
+                <span className={styles.tooltipLabel}>Joined:</span>
+                <span className={styles.tooltipValue}>
+                  {new Date(activeTooltip.joinedAt).toLocaleDateString()}
+                </span>
+              </div>
             )}
           </div>
-        ))}
-      </div>
+          <div className={styles.tooltipFooter}>
+            <button className={styles.messageButton}>
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+              </svg>
+              Message
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

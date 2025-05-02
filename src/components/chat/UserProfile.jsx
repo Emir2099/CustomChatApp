@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { auth, db} from '../../config/firebase';
 import { updateProfile, signOut } from 'firebase/auth';
-import { ref as dbRef, update } from 'firebase/database';
+import { ref as dbRef, update, serverTimestamp } from 'firebase/database';
 // import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
 import styles from './UserProfile.module.css';
 import PropTypes from 'prop-types';
@@ -18,31 +18,102 @@ const getInitials = (email, displayName) => {
   return email[0].toUpperCase();
 };
 
+// Helper function to do a deep comparison
+const isEqual = (obj1, obj2) => {
+  if (obj1 === obj2) return true;
+  if (!obj1 || !obj2) return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  return keys1.every(key => {
+    const val1 = obj1[key];
+    const val2 = obj2[key];
+    
+    if (typeof val1 === 'object' && typeof val2 === 'object') {
+      return isEqual(val1, val2);
+    }
+    return val1 === val2;
+  });
+};
+
 const UserProfile = ({ show, onClose, currentUser }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
+  const [displayName, setDisplayName] = useState('');
   const [status, setStatus] = useState('Available');
-  const [bio, setBio] = useState(currentUser?.bio || '');
+  const [bio, setBio] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
+  const prevUserRef = useRef(null);
+  
+  // Use a stable memoized snapshot of currentUser to prevent unnecessary re-renders
+  const stableCurrentUser = useMemo(() => {
+    // Only create a new memoized value if user data has meaningful changes
+    if (currentUser && (!prevUserRef.current || 
+       currentUser.displayName !== prevUserRef.current.displayName ||
+       currentUser.photoURL !== prevUserRef.current.photoURL ||
+       currentUser.status !== prevUserRef.current.status ||
+       currentUser.bio !== prevUserRef.current.bio)) {
+      return JSON.parse(JSON.stringify(currentUser));
+    }
+    return prevUserRef.current;
+  }, [currentUser]);
+
+  // Update local state when currentUser changes
+  useEffect(() => {
+    // Skip if no user data is available
+    if (!stableCurrentUser) return;
+    
+    // Skip if deep equal to previous user or same reference
+    if (prevUserRef.current === stableCurrentUser) return;
+    
+    // Keep track of initialization to avoid log spam
+    const isInitializing = !prevUserRef.current;
+    
+    if (isInitializing || !isEqual(stableCurrentUser, prevUserRef.current)) {
+      if (!isInitializing) {
+        console.log("Updating UserProfile with currentUser:", stableCurrentUser);
+      }
+      
+      setDisplayName(stableCurrentUser.displayName || '');
+      setStatus(stableCurrentUser.status || 'Available');
+      setBio(stableCurrentUser.bio || '');
+      
+      // Store reference to current snapshot
+      prevUserRef.current = stableCurrentUser;
+    }
+  }, [stableCurrentUser]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     try {
+      // First update Firebase Auth profile
       await updateProfile(auth.currentUser, {
         displayName: displayName
       });
-      await update(dbRef(db, `users/${currentUser.uid}`), {
+      
+      // Then update the database with all profile data
+      await update(dbRef(db, `users/${stableCurrentUser.uid}`), {
         displayName,
         bio,
         status,
-        lastUpdated: Date.now()
+        lastUpdated: serverTimestamp()
       });
+      
+      console.log("Profile updated successfully:", {
+        displayName,
+        bio,
+        status
+      });
+      
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -50,9 +121,9 @@ const UserProfile = ({ show, onClose, currentUser }) => {
 
   const handleSignOut = async () => {
     try {
-      await update(dbRef(db, `users/${currentUser.uid}`), {
-        status: 'offline',
-        lastSeen: Date.now()
+      await update(dbRef(db, `users/${stableCurrentUser.uid}`), {
+        status: 'Offline',
+        lastSeen: serverTimestamp()
       });
       await signOut(auth);
     } catch (error) {
@@ -143,9 +214,10 @@ const UserProfile = ({ show, onClose, currentUser }) => {
           await update(dbRef(db, `users/${auth.currentUser.uid}`), {
             photoURL: optimizedPhotoURL,
             thumbnailURL: thumbnailURL,
-            lastUpdated: Date.now()
+            lastUpdated: serverTimestamp()
           });
 
+          console.log("Profile photo updated successfully");
           setUploadError('');
         } catch (error) {
           console.error('Error processing photo:', error);
@@ -167,6 +239,21 @@ const UserProfile = ({ show, onClose, currentUser }) => {
       setIsLoading(false);
     }
   };
+
+  // If currentUser is not available, show a loading state
+  if (!currentUser) {
+    return (
+      <div className={`${styles.profilePanel} ${show ? styles.show : ''}`}>
+        <div className={styles.header}>
+          <h2>Profile</h2>
+          <button onClick={onClose} className={styles.closeButton}>×</button>
+        </div>
+        <div className={styles.profileContent}>
+          <p className={styles.loadingText}>Loading profile data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${styles.profilePanel} ${show ? styles.show : ''}`}>
@@ -277,12 +364,12 @@ const UserProfile = ({ show, onClose, currentUser }) => {
             </div>
             <div className={styles.infoItem}>
               <span>Bio</span>
-              <p>{bio || 'No bio yet'}</p>
+              <p>{currentUser?.bio || 'No bio yet'}</p>
             </div>
             <div className={styles.infoItem}>
               <span>Status</span>
-              <p className={`${styles.status} ${styles[status.toLowerCase().replace(/\s+/g, '')]}`}>
-                {status}
+              <p className={`${styles.status} ${styles[currentUser.status?.toLowerCase().replace(/\s+/g, '') || 'available']}`}>
+                {currentUser.status || 'Available'}
               </p>
             </div>
             <button 
@@ -316,6 +403,7 @@ UserProfile.propTypes = {
     displayName: PropTypes.string,
     email: PropTypes.string,
     bio: PropTypes.string,
+    status: PropTypes.string,
     uid: PropTypes.string
   })
 };
