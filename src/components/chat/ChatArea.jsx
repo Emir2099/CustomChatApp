@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChat } from '../../contexts/ChatContext';
 import { auth } from '../../config/firebase';
 import styles from './ChatArea.module.css';
+import React from 'react';
 
 export default function ChatArea() {
   const { currentChat, messages, sendMessage, handleVote } = useChat();
@@ -109,14 +110,13 @@ export default function ChatArea() {
 
       <div className={styles.messageList}>
         {messages.map((message, index) => (
-          <>
+          <React.Fragment key={message.id}>
             {shouldShowDate(message, index, messages) && (
               <div className={styles.dateSeparator}>
                 <span>{formatDate(message.timestamp)}</span>
               </div>
             )}
             <div 
-              key={message.id} 
               className={`${styles.message} ${
                 message.type === 'poll' ? styles.pollMessage :
                 message.type === 'announcement' ? styles.announcementMessage : 
@@ -188,7 +188,7 @@ export default function ChatArea() {
                 </div>
               )}
             </div>
-          </>
+          </React.Fragment>
         ))}
       </div>
 

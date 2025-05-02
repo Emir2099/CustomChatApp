@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
-import { auth, db } from '../../config/firebase';
+import { auth, db} from '../../config/firebase';
 import { updateProfile, signOut } from 'firebase/auth';
-import { ref, update } from 'firebase/database';
+import { ref as dbRef, update } from 'firebase/database';
+// import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
 import styles from './UserProfile.module.css';
 import PropTypes from 'prop-types';
 
@@ -33,7 +34,7 @@ const UserProfile = ({ show, onClose, currentUser }) => {
       await updateProfile(auth.currentUser, {
         displayName: displayName
       });
-      await update(ref(db, `users/${currentUser.uid}`), {
+      await update(dbRef(db, `users/${currentUser.uid}`), {
         displayName,
         bio,
         status,
@@ -49,7 +50,7 @@ const UserProfile = ({ show, onClose, currentUser }) => {
 
   const handleSignOut = async () => {
     try {
-      await update(ref(db, `users/${currentUser.uid}`), {
+      await update(dbRef(db, `users/${currentUser.uid}`), {
         status: 'offline',
         lastSeen: Date.now()
       });
@@ -82,37 +83,69 @@ const UserProfile = ({ show, onClose, currentUser }) => {
           img.src = reader.result;
           await new Promise(resolve => img.onload = resolve);
 
-          // Create two canvases - one for display and one for auth
-          const displayCanvas = document.createElement('canvas');
-          const authCanvas = document.createElement('canvas');
-          const displayCtx = displayCanvas.getContext('2d');
-          const authCtx = authCanvas.getContext('2d');
+          // Create a single canvas for the optimized image
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
 
-          // Display version - larger, better quality
-          const DISPLAY_SIZE = 200;
-          const displayRatio = Math.min(DISPLAY_SIZE / img.width, DISPLAY_SIZE / img.height);
-          displayCanvas.width = img.width * displayRatio;
-          displayCanvas.height = img.height * displayRatio;
-          displayCtx.drawImage(img, 0, 0, displayCanvas.width, displayCanvas.height);
-          const displayPhotoURL = displayCanvas.toDataURL('image/jpeg', 0.7);
+          // Calculate dimensions while maintaining aspect ratio
+          const MAX_SIZE = 300; // Size for database version
+          const scale = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
+          const newWidth = img.width * scale;
+          const newHeight = img.height * scale;
 
-          // Auth version - tiny thumbnail
-          const AUTH_SIZE = 32;
-          const authRatio = Math.min(AUTH_SIZE / img.width, AUTH_SIZE / img.height);
-          authCanvas.width = img.width * authRatio;
-          authCanvas.height = img.height * authRatio;
-          authCtx.drawImage(img, 0, 0, authCanvas.width, authCanvas.height);
-          const authPhotoURL = authCanvas.toDataURL('image/jpeg', 0.5);
+          // Set canvas dimensions
+          canvas.width = newWidth;
+          canvas.height = newHeight;
 
-          // Update database with display version
-          await update(ref(db, `users/${auth.currentUser.uid}`), {
-            photoURL: displayPhotoURL,
-            thumbnailURL: authPhotoURL,
+          // Use better image rendering
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          // Draw image with white background to prevent transparency issues
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+          // Convert to optimized JPEG for database
+          const optimizedPhotoURL = canvas.toDataURL('image/jpeg', 0.85);
+
+          // Create an extremely small version for auth profile to avoid the size limit
+          const AUTH_SIZE = 32; // Reduced size
+          const authScale = Math.min(AUTH_SIZE / img.width, AUTH_SIZE / img.height);
+          canvas.width = img.width * authScale;
+          canvas.height = img.height * authScale;
+          
+          // Redraw for auth version
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const authPhotoURL = canvas.toDataURL('image/jpeg', 0.3); // Much lower quality for auth
+
+          // Create thumbnail version for chat lists
+          const THUMB_SIZE = 50;
+          const thumbScale = Math.min(THUMB_SIZE / img.width, THUMB_SIZE / img.height);
+          canvas.width = img.width * thumbScale;
+          canvas.height = img.height * thumbScale;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const thumbnailURL = canvas.toDataURL('image/jpeg', 0.6);
+
+          // First update auth profile with small version
+          try {
+            await updateProfile(auth.currentUser, { 
+              photoURL: authPhotoURL
+            });
+          } catch (authError) {
+            console.log("Couldn't update auth profile photo (likely too large):", authError.message);
+            // Continue anyway - use the database version for display
+          }
+
+          // Then update database with high quality and thumbnail versions
+          await update(dbRef(db, `users/${auth.currentUser.uid}`), {
+            photoURL: optimizedPhotoURL,
+            thumbnailURL: thumbnailURL,
             lastUpdated: Date.now()
           });
 
-          // Update auth profile with tiny thumbnail
-          await updateProfile(auth.currentUser, { photoURL: authPhotoURL });
           setUploadError('');
         } catch (error) {
           console.error('Error processing photo:', error);
@@ -150,11 +183,9 @@ const UserProfile = ({ show, onClose, currentUser }) => {
               background: currentUser?.photoURL ? 'none' : `linear-gradient(135deg, #6366f1, #8b5cf6)`
             }}
           >
-            {currentUser?.photoURL ? (
+            {currentUser?.photoURL || currentUser?.dbPhotoURL ? (
               <img 
-                src={currentUser.photoURL === currentUser.thumbnailURL 
-                  ? currentUser.photoURL 
-                  : currentUser.photoURL || currentUser.thumbnailURL} 
+                src={currentUser.dbPhotoURL || currentUser.photoURL} 
                 alt="Profile" 
               />
             ) : (
@@ -281,6 +312,7 @@ UserProfile.propTypes = {
   onClose: PropTypes.func.isRequired,
   currentUser: PropTypes.shape({
     photoURL: PropTypes.string,
+    dbPhotoURL: PropTypes.string,
     displayName: PropTypes.string,
     email: PropTypes.string,
     bio: PropTypes.string,

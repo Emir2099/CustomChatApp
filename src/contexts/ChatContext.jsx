@@ -1,10 +1,31 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../config/firebase';
 import { ref, onValue, push, set, update, get, serverTimestamp } from 'firebase/database';
 import { useAuth } from './AuthContext';
 import PropTypes from 'prop-types';
 
 const ChatContext = createContext();
+
+// Helper function to check if objects are deeply equal
+const isEqual = (obj1, obj2) => {
+  if (obj1 === obj2) return true;
+  if (!obj1 || !obj2) return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  return keys1.every(key => {
+    const val1 = obj1[key];
+    const val2 = obj2[key];
+    
+    if (typeof val1 === 'object' && typeof val2 === 'object') {
+      return isEqual(val1, val2);
+    }
+    return val1 === val2;
+  });
+};
 
 export function useChat() {
   const context = useContext(ChatContext);
@@ -24,22 +45,110 @@ export function ChatProvider({ children }) {
   const [announcements, setAnnouncements] = useState([]);
   const [polls, setPolls] = useState([]);
   const [inviteLink, setInviteLink] = useState('');
+  
+  // Use refs to track previous values and listeners
+  const chatListenersRef = useRef([]);
+  const prevChatsRef = useRef({});
+  const markingChatAsReadRef = useRef(false);
+  const currentChatRef = useRef(null);
+  
+  // Memoize functions to prevent them from changing on each render
+  const clearInviteLink = useCallback(() => {
+    setInviteLink('');
+  }, []);
+
+  // Memoize markChatAsRead to avoid dependency loops
+  const markChatAsRead = useCallback(async (chatId) => {
+    if (!user || !chatId || markingChatAsReadRef.current) return;
+    
+    try {
+      markingChatAsReadRef.current = true;
+      
+      const updates = {};
+      updates[`users/${user.uid}/chats/${chatId}/lastRead`] = serverTimestamp();
+      await update(ref(db), updates);
+      
+      setChats(prev => {
+        const newChats = prev.map(chat => 
+          chat.id === chatId 
+            ? { 
+                ...chat, 
+                unreadMessages: 0, 
+                unreadAnnouncements: 0, 
+                unreadPolls: 0 
+              } 
+            : chat
+        );
+        return newChats;
+      });
+    } catch (error) {
+      console.error('Error marking chat as read:', error);
+    } finally {
+      markingChatAsReadRef.current = false;
+    }
+  }, [user]);
+
+  // Memoize handleChatSelect
+  const handleChatSelect = useCallback(async (chat) => {
+    if (!chat || isEqual(chat, currentChatRef.current)) return;
+    
+    currentChatRef.current = chat;
+    setCurrentChat(chat);
+    
+    if (chat && chat.id) {
+      // Use setTimeout to break the synchronous call chain
+      setTimeout(() => {
+        markChatAsRead(chat.id);
+      }, 0);
+    }
+  }, [markChatAsRead]);
+
+  // Memoize the generateInviteLink function
+  const generateInviteLink = useCallback(async (chatId) => {
+    try {
+      const linkId = Math.random().toString(36).substring(2, 15);
+      
+      await update(ref(db, `chats/${chatId}/info`), {
+        inviteLink: linkId,
+        lastUpdated: Date.now()
+      });
+      
+      const linkUrl = `${window.location.origin}/invite/${chatId}/${linkId}`;
+      setInviteLink(linkUrl);
+      return linkUrl;
+    } catch (error) {
+      console.error('Error generating invite link:', error);
+      throw error;
+    }
+  }, []);
 
   // Listen to user's chats
   useEffect(() => {
     if (!user) return;
+    
+    // Clean up previous listeners
+    const cleanupListeners = () => {
+      chatListenersRef.current.forEach(listener => listener());
+      chatListenersRef.current = [];
+    };
 
     const userChatsRef = ref(db, `users/${user.uid}/chats`);
-    return onValue(userChatsRef, (snapshot) => {
+    
+    const unsubscribe = onValue(userChatsRef, (snapshot) => {
+      // Clean up existing listeners
+      cleanupListeners();
+      
       const chatIds = snapshot.val() || {};
       
       Object.keys(chatIds).forEach(chatId => {
         const chatRef = ref(db, `chats/${chatId}`);
         const userLastReadRef = ref(db, `users/${user.uid}/chats/${chatId}/lastRead`);
         
-        onValue(chatRef, async (chatSnapshot) => {
-          const chatData = chatSnapshot.val();
-          if (chatData) {
+        const chatListener = onValue(chatRef, async (chatSnapshot) => {
+          try {
+            const chatData = chatSnapshot.val();
+            if (!chatData) return;
+            
             const userLastReadSnapshot = await get(userLastReadRef);
             const lastRead = userLastReadSnapshot.val() || 0;
             
@@ -62,42 +171,85 @@ export function ChatProvider({ children }) {
               });
             }
 
+            const newChatData = { 
+              id: chatId, 
+              ...chatData.info,
+              unreadMessages,
+              unreadAnnouncements,
+              unreadPolls,
+              memberCount: Object.keys(chatData.members || {}).length
+            };
+            
+            // Only update if the data has actually changed
+            const prevChatData = prevChatsRef.current[chatId];
+            if (prevChatData && isEqual(prevChatData, newChatData)) {
+              return;
+            }
+            
+            // Save the new chat data for future comparison
+            prevChatsRef.current[chatId] = newChatData;
+            
+            // Update state with immutable pattern
             setChats(prev => {
-              const updated = [...prev.filter(c => c.id !== chatId), { 
-                id: chatId, 
-                ...chatData.info,
-                unreadMessages,
-                unreadAnnouncements,
-                unreadPolls,
-                memberCount: Object.keys(chatData.members || {}).length
-              }];
-              return updated.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+              const updated = [
+                ...prev.filter(c => c.id !== chatId),
+                newChatData
+              ];
+              return updated.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
             });
+          } catch (error) {
+            console.error('Error handling chat update:', error);
           }
         });
+        
+        chatListenersRef.current.push(chatListener);
       });
     });
+    
+    return () => {
+      unsubscribe();
+      cleanupListeners();
+    };
   }, [user]);
 
   // Listen to messages for the current chat
   useEffect(() => {
     if (!currentChat?.id || !user) return;
+    
+    let isMounted = true;
+    
+    // First time load of this chat - mark as read
+    setTimeout(() => {
+      if (isMounted && currentChat?.id && !markingChatAsReadRef.current) {
+        markChatAsRead(currentChat.id);
+      }
+    }, 100);
 
     const messagesRef = ref(db, `chats/${currentChat.id}/messages`);
-    return onValue(messagesRef, async (snapshot) => {
-      const messages = snapshot.val() || {};
+    
+    const messageListener = onValue(messagesRef, (snapshot) => {
+      if (!isMounted) return;
       
-      // Mark messages as read when loaded
-      await markChatAsRead(currentChat.id);
+      const messagesData = snapshot.val() || {};
       
-      setMessages(Object.entries(messages).map(([id, message]) => ({
-        id,
-        ...message
-      })).sort((a, b) => a.timestamp - b.timestamp));
+      const formattedMessages = Object.entries(messagesData)
+        .map(([id, message]) => ({
+          id,
+          ...message
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+      
+      setMessages(formattedMessages);
     });
+    
+    return () => {
+      isMounted = false;
+      messageListener();
+    };
   }, [currentChat?.id, user]);
 
-  const sendMessage = async (content) => {
+  // Memoize the sendMessage function
+  const sendMessage = useCallback(async (content) => {
     if (!currentChat?.id || !user) return;
 
     try {
@@ -125,9 +277,11 @@ export function ChatProvider({ children }) {
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  };
+  }, [currentChat, user]);
 
-  const createGroup = async (name, members) => {
+
+
+  const createGroup = useCallback(async (name, members) => {
     if (!user) {
       throw new Error('You must be logged in to create a group');
     }
@@ -181,23 +335,30 @@ export function ChatProvider({ children }) {
       });
       
       await update(ref(db), updates);
-      setCurrentChat({ id: chatId, ...chatData.info });
       
-      console.log('Group created successfully:', chatId);
+      // Update current chat via the memoized function to avoid loops
+      handleChatSelect({ id: chatId, ...chatData.info });
+      
       return chatId;
     } catch (error) {
       console.error('Error creating group:', error);
       throw new Error('Failed to create group: ' + error.message);
     }
-  };
+  }, [user, handleChatSelect]);
 
+  // Fetch users once when user changes
   useEffect(() => {
     if (!user) return;
+    
+    let isMounted = true;
 
     const fetchUsers = async () => {
-      const usersRef = ref(db, 'users');
-      const snapshot = await get(usersRef);
-      if (snapshot.exists()) {
+      try {
+        const usersRef = ref(db, 'users');
+        const snapshot = await get(usersRef);
+        
+        if (!snapshot.exists() || !isMounted) return;
+        
         const usersData = snapshot.val();
         const usersList = Object.entries(usersData)
           .map(([uid, data]) => ({
@@ -205,11 +366,18 @@ export function ChatProvider({ children }) {
             ...data
           }))
           .filter(u => u.uid !== user.uid); // Exclude current user
+        
         setUsers(usersList);
+      } catch (error) {
+        console.error('Error fetching users:', error);
       }
     };
 
     fetchUsers();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   // Listen to current chat members
@@ -218,60 +386,99 @@ export function ChatProvider({ children }) {
       setMembers([]);
       return;
     }
+    
+    let isMounted = true;
 
     const membersRef = ref(db, `chats/${currentChat.id}/members`);
-    return onValue(membersRef, async (snapshot) => {
-      const membersData = snapshot.val() || {};
-      const membersList = await Promise.all(
-        Object.entries(membersData).map(async ([uid, data]) => {
-          const userSnapshot = await get(ref(db, `users/${uid}`));
-          const userData = userSnapshot.val() || {};
-          return {
-            uid,
-            ...userData,
-            ...data
-          };
-        })
-      );
-      setMembers(membersList);
+    
+    const membersListener = onValue(membersRef, async (snapshot) => {
+      if (!isMounted) return;
+      
+      try {
+        const membersData = snapshot.val() || {};
+        
+        const membersList = await Promise.all(
+          Object.entries(membersData).map(async ([uid, data]) => {
+            const userSnapshot = await get(ref(db, `users/${uid}`));
+            const userData = userSnapshot.val() || {};
+            return {
+              uid,
+              ...userData,
+              ...data
+            };
+          })
+        );
+        
+        setMembers(membersList);
+      } catch (error) {
+        console.error('Error fetching members:', error);
+      }
     });
+    
+    return () => {
+      isMounted = false;
+      membersListener();
+    };
   }, [currentChat]);
 
   // Listen to polls
   useEffect(() => {
     if (!currentChat) return;
     
+    let isMounted = true;
+    
     const pollsRef = ref(db, `chats/${currentChat.id}/polls`);
-    return onValue(pollsRef, (snapshot) => {
+    
+    const pollsListener = onValue(pollsRef, (snapshot) => {
+      if (!isMounted) return;
+      
       const pollsData = snapshot.val() || {};
       const pollsList = Object.entries(pollsData).map(([id, data]) => ({
         id,
         ...data
       }));
+      
       setPolls(pollsList);
     });
+    
+    return () => {
+      isMounted = false;
+      pollsListener();
+    };
   }, [currentChat]);
 
   // Listen to announcements
   useEffect(() => {
     if (!currentChat) return;
     
+    let isMounted = true;
+    
     const announcementsRef = ref(db, `chats/${currentChat.id}/announcements`);
-    return onValue(announcementsRef, (snapshot) => {
+    
+    const announcementsListener = onValue(announcementsRef, (snapshot) => {
+      if (!isMounted) return;
+      
       const announcementsData = snapshot.val() || {};
       const announcementsList = Object.entries(announcementsData).map(([id, data]) => ({
         id,
         ...data
       }));
+      
       setAnnouncements(announcementsList);
     });
+    
+    return () => {
+      isMounted = false;
+      announcementsListener();
+    };
   }, [currentChat]);
 
-  const updateGroupInfo = async (chatId, updates) => {
+  // Memoize the update, add and remove functions
+  const updateGroupInfo = useCallback(async (chatId, updates) => {
     await update(ref(db, `chats/${chatId}/info`), updates);
-  };
+  }, []);
 
-  const removeMember = async (chatId, memberId) => {
+  const removeMember = useCallback(async (chatId, memberId) => {
     try {
       const chatRef = ref(db, `chats/${chatId}`);
       const chatSnapshot = await get(chatRef);
@@ -287,9 +494,11 @@ export function ChatProvider({ children }) {
     } catch (error) {
       console.error('Error removing member:', error);
     }
-  };
+  }, []);
 
-  const addMember = async (chatId, userId) => {
+  const addMember = useCallback(async (chatId, userId) => {
+    if (!user) return;
+    
     try {
       const chatRef = ref(db, `chats/${chatId}`);
       const chatSnapshot = await get(chatRef);
@@ -312,10 +521,10 @@ export function ChatProvider({ children }) {
     } catch (error) {
       console.error('Error adding member:', error);
     }
-  };
+  }, [user]);
 
-  const createAnnouncement = async (content) => {
-    if (!currentChat) return;
+  const createAnnouncement = useCallback(async (content) => {
+    if (!currentChat?.id || !user) return;
     
     const messageRef = ref(db, `chats/${currentChat.id}/messages`);
     await push(messageRef, {
@@ -325,9 +534,9 @@ export function ChatProvider({ children }) {
       timestamp: serverTimestamp(),
       type: 'announcement'
     });
-  };
+  }, [currentChat, user]);
 
-  const createPoll = async (question, options) => {
+  const createPoll = useCallback(async (question, options) => {
     if (!currentChat?.id || !user) return;
     
     const messageRef = ref(db, `chats/${currentChat.id}/messages`);
@@ -342,9 +551,9 @@ export function ChatProvider({ children }) {
       senderName: user.displayName,
       timestamp: serverTimestamp()
     });
-  };
+  }, [currentChat, user]);
 
-  const handleVote = async (messageId, optionId) => {
+  const handleVote = useCallback(async (messageId, optionId) => {
     if (!currentChat?.id || !user) return;
     
     try {
@@ -354,84 +563,36 @@ export function ChatProvider({ children }) {
     } catch (error) {
       console.error('Error voting:', error);
     }
-  };
+  }, [currentChat, user]);
 
-  const clearInviteLink = () => {
-    setInviteLink('');
-  };
-
-  const generateInviteLink = async (chatId) => {
-    try {
-      const linkId = Math.random().toString(36).substring(2, 15);
-      
-      // Store the invite link in the chat's info object
-      await update(ref(db, `chats/${chatId}/info`), {
-        inviteLink: linkId,
-        lastUpdated: Date.now()
-      });
-      
-      return `${window.location.origin}/invite/${chatId}/${linkId}`;
-    } catch (error) {
-      console.error('Error generating invite link:', error);
-      throw error;
-    }
-  };
-
-  // Update markChatAsRead function
-  const markChatAsRead = async (chatId) => {
-    if (!user || !chatId) return;
-    
-    try {
-      const updates = {};
-      updates[`users/${user.uid}/chats/${chatId}/lastRead`] = serverTimestamp();
-      await update(ref(db), updates);
-      
-      // Update local state to reflect read status
-      setChats(prev => 
-        prev.map(chat => 
-          chat.id === chatId 
-            ? { ...chat, unreadCount: 0 }
-            : chat
-        )
-      );
-    } catch (error) {
-      console.error('Error marking chat as read:', error);
-    }
-  };
-
-  // Update handleChatSelect function
-  const handleChatSelect = async (chat) => {
-    setCurrentChat(chat);
-    if (chat) {
-      await markChatAsRead(chat.id);
-    }
+  // Provide context with all memoized values and functions
+  const contextValue = {
+    currentChat,
+    setCurrentChat,
+    chats,
+    messages,
+    sendMessage,
+    createGroup,
+    members,
+    users,
+    updateGroupInfo,
+    removeMember,
+    addMember,
+    createAnnouncement,
+    createPoll,
+    handleVote,
+    announcements,
+    polls,
+    inviteLink,
+    setInviteLink,
+    clearInviteLink,
+    generateInviteLink,
+    markChatAsRead,
+    handleChatSelect
   };
 
   return (
-    <ChatContext.Provider value={{
-      currentChat,
-      setCurrentChat,
-      chats,
-      messages,
-      sendMessage,
-      createGroup,
-      members,
-      users,
-      updateGroupInfo,
-      removeMember,
-      addMember,
-      createAnnouncement,
-      createPoll,
-      handleVote,
-      announcements,
-      polls,
-      inviteLink,
-      setInviteLink,
-      clearInviteLink,
-      generateInviteLink,
-      markChatAsRead,
-      handleChatSelect,
-    }}>
+    <ChatContext.Provider value={contextValue}>
       {children}
     </ChatContext.Provider>
   );

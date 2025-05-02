@@ -16,7 +16,7 @@ export default function ChatLayout() {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const iconInputRef = useRef(null);
   const { user } = useAuth();
-  const { currentChat, updateChat, createPoll, createAnnouncement } = useChat();
+  const { currentChat, updateChat, createPoll, createAnnouncement, setCurrentChat } = useChat();
   const [currentView, setCurrentView] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -50,10 +50,16 @@ export default function ChatLayout() {
         
         const chatRef = ref(getDatabase(), `chats/${currentChat.id}`);
         await update(chatRef, {
-          iconURL,
-          lastUpdated: Date.now()
+          "info/iconURL": iconURL,
+          "info/lastUpdated": Date.now()
         });
-        updateChat(currentChat.id, { iconURL });
+        
+        if (currentChat) {
+          setCurrentChat(prevChat => ({
+            ...prevChat,
+            iconURL
+          }));
+        }
       };
     } catch (error) {
       console.error('Error updating server icon:', error);

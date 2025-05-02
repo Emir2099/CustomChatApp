@@ -33,10 +33,11 @@ export default function GroupInfo() {
 
   const isAdmin = currentChat?.admins?.[auth.currentUser?.uid];
 
-  // Get admin's photo for group avatar (or first member's photo)
+  // Priority for avatar: 1. Group's own iconURL, 2. Admin's photo, 3. First member's photo
+  // This change makes sure we use the group's own icon if available
   const adminMember = members.find(m => m.uid === currentChat?.createdBy);
   const firstMember = members[0];
-  const avatarURL = adminMember?.photoURL || firstMember?.photoURL;
+  const avatarURL = currentChat?.iconURL || adminMember?.photoURL || firstMember?.photoURL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -78,9 +79,7 @@ export default function GroupInfo() {
         <div className={styles.groupAvatar}>
           {avatarURL ? (
             <img 
-              src={avatarURL === adminMember?.thumbnailURL 
-                ? avatarURL 
-                : avatarURL || adminMember?.thumbnailURL} 
+              src={avatarURL} 
               alt={currentChat.name} 
             />
           ) : (
