@@ -96,14 +96,21 @@ const UserProfile = ({ show, onClose, currentUser }) => {
         displayName: displayName
       });
       
-      // Then update the database with all profile data
-      await update(dbRef(db, `users/${stableCurrentUser.uid}`), {
+      // Handle status differently based on whether it's Offline or not
+      const updateData = {
         displayName,
         bio,
         status,
-        lastActiveStatus: status !== 'Offline' ? status : stableCurrentUser.lastActiveStatus || 'Available',
         lastUpdated: serverTimestamp()
-      });
+      };
+      
+      // Only update lastActiveStatus if the new status is not Offline
+      if (status !== 'Offline') {
+        updateData.lastActiveStatus = status;
+      }
+      
+      // Then update the database with all profile data
+      await update(dbRef(db, `users/${stableCurrentUser.uid}`), updateData);
       
       console.log("Profile updated successfully:", {
         displayName,

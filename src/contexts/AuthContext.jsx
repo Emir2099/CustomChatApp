@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { auth } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ref, onValue, set, serverTimestamp } from 'firebase/database';
+import { ref, onValue, set, serverTimestamp, onDisconnect, get } from 'firebase/database';
 import { db } from '../config/firebase';
 import PropTypes from 'prop-types';
 
@@ -61,6 +61,7 @@ export function AuthProvider({ children }) {
   const userDataListener = useRef(null);
   const previousUserRef = useRef(null);
   const throttledUpdateRef = useRef(null);
+  const presenceRef = useRef(null);
 
   // Create a throttled setUser function to prevent rapid re-renders
   useEffect(() => {
@@ -211,6 +212,66 @@ export function AuthProvider({ children }) {
       }
     };
   }, [ensureUserRecord]);
+
+  // Set up connection status monitoring
+  useEffect(() => {
+    if (!user) return;
+
+    // Reference to the Firebase connection state
+    const connectedRef = ref(db, '.info/connected');
+    
+    // Track when we're connected to Firebase
+    const connectedListener = onValue(connectedRef, (snapshot) => {
+      const isConnected = snapshot.val();
+      
+      if (isConnected) {
+        console.log('Connected to Firebase');
+        
+        // Reference to this user's status
+        const userStatusRef = ref(db, `users/${user.uid}/status`);
+        const userLastSeenRef = ref(db, `users/${user.uid}/lastSeen`);
+        
+        // When user disconnects, update status to offline and record timestamp
+        onDisconnect(userStatusRef).set('Offline');
+        onDisconnect(userLastSeenRef).set(serverTimestamp());
+        
+        // Save the onDisconnect reference for cleanup
+        presenceRef.current = userStatusRef;
+        
+        // Check the current status in the database
+        get(userStatusRef).then((statusSnapshot) => {
+          const currentStatus = statusSnapshot.val();
+          
+          // If the user was offline, restore their last active status
+          if (currentStatus === 'Offline') {
+            get(ref(db, `users/${user.uid}/lastActiveStatus`)).then((activeStatusSnapshot) => {
+              const lastActiveStatus = activeStatusSnapshot.val() || 'Available';
+              set(userStatusRef, lastActiveStatus);
+            });
+          }
+        }).catch(err => {
+          console.error('Error checking user status:', err);
+        });
+      } else {
+        console.log('Disconnected from Firebase');
+      }
+    });
+
+    // Clean up the connection listener when component unmounts
+    return () => {
+      connectedListener();
+      
+      // If we have an onDisconnect handler, cancel it and set status to offline manually
+      if (presenceRef.current) {
+        // Cancel the automatic status change
+        onDisconnect(presenceRef.current).cancel();
+        
+        // Manually set status to offline since we're intentionally disconnecting
+        set(ref(db, `users/${user.uid}/status`), 'Offline');
+        set(ref(db, `users/${user.uid}/lastSeen`), serverTimestamp());
+      }
+    };
+  }, [user]);
 
   const value = {
     user,
