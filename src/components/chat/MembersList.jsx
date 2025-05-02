@@ -42,6 +42,7 @@ export default function MembersList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTooltip, setActiveTooltip] = useState(null);
   const tooltipRef = useRef(null);
+  const tooltipTimeoutRef = useRef(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [enhancedMembers, setEnhancedMembers] = useState([]);
   const userListenersRef = useRef({});
@@ -91,6 +92,15 @@ export default function MembersList() {
     };
   }, [members]);
 
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleRemoveMember = async (memberId) => {
     if (window.confirm('Are you sure you want to remove this member?')) {
       await removeMember(currentChat.id, memberId);
@@ -98,6 +108,11 @@ export default function MembersList() {
   };
 
   const handleMouseEnter = (member, e) => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+      tooltipTimeoutRef.current = null;
+    }
+    
     const rect = e.currentTarget.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     
@@ -113,6 +128,22 @@ export default function MembersList() {
   };
 
   const handleMouseLeave = () => {
+    // Use a timeout to delay hiding the tooltip
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setActiveTooltip(null);
+    }, 300); // 300ms delay gives time to move to the tooltip
+  };
+  
+  const handleTooltipMouseEnter = () => {
+    // Cancel the timeout when mouse enters the tooltip
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+      tooltipTimeoutRef.current = null;
+    }
+  };
+  
+  const handleTooltipMouseLeave = () => {
+    // Hide the tooltip when the mouse leaves it
     setActiveTooltip(null);
   };
 
@@ -149,6 +180,8 @@ export default function MembersList() {
       <div className={styles.members}>
         {filteredMembers.map(member => {
           const status = mapStatusToUserStatus(member.status);
+          const isOffline = status === 'offline';
+          
           return (
             <div 
               key={member.uid} 
@@ -156,9 +189,11 @@ export default function MembersList() {
               onMouseEnter={(e) => handleMouseEnter(member, e)}
               onMouseLeave={handleMouseLeave}
             >
-              <div className={styles.rippleContainer}>
-                <div className={`${styles.ripple} ${styles[`ripple-${status}`]}`}></div>
-              </div>
+              {!isOffline && (
+                <div className={styles.rippleContainer}>
+                  <div className={`${styles.ripple} ${styles[`ripple-${status}`]}`}></div>
+                </div>
+              )}
               <div className={styles.memberInfo}>
                 <div className={`${styles.avatar} ${styles[`status-${status}`]}`}>
                   {member.photoURL ? (
@@ -205,6 +240,8 @@ export default function MembersList() {
             top: `${tooltipPosition.y}px`,
             left: `${tooltipPosition.x}px`,
           }}
+          onMouseEnter={handleTooltipMouseEnter}
+          onMouseLeave={handleTooltipMouseLeave}
         >
           <div className={`${styles.tooltipHeader} ${styles[`tooltip-${mapStatusToUserStatus(activeTooltip.status)}`]}`}>
             <div className={styles.tooltipAvatar}>
@@ -214,13 +251,16 @@ export default function MembersList() {
                 <span>{getInitials(activeTooltip.email, activeTooltip.displayName)}</span>
               )}
             </div>
-            <h3>{activeTooltip.displayName || activeTooltip.email}</h3>
+            <div className={styles.tooltipUserInfo}>
+              <h3>{activeTooltip.displayName || 'Anonymous User'}</h3>
+              {activeTooltip.email ? (
+                <p className={styles.tooltipEmail}>{activeTooltip.email}</p>
+              ) : (
+                <p className={styles.tooltipEmail}>No email available</p>
+              )}
+            </div>
           </div>
           <div className={styles.tooltipBody}>
-            <div className={styles.tooltipInfo}>
-              <span className={styles.tooltipLabel}>Email:</span>
-              <span className={styles.tooltipValue}>{activeTooltip.email}</span>
-            </div>
             <div className={styles.tooltipInfo}>
               <span className={styles.tooltipLabel}>Status:</span>
               <span className={`${styles.tooltipValue} ${styles[`text-${mapStatusToUserStatus(activeTooltip.status)}`]}`}>

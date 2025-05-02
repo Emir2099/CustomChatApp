@@ -101,6 +101,7 @@ const UserProfile = ({ show, onClose, currentUser }) => {
         displayName,
         bio,
         status,
+        lastActiveStatus: status !== 'Offline' ? status : stableCurrentUser.lastActiveStatus || 'Available',
         lastUpdated: serverTimestamp()
       });
       

@@ -11,10 +11,10 @@ const AuthContext = createContext();
 const serializeUser = (firebaseUser) => {
   if (!firebaseUser) return null;
   
-  // Extract only the properties we need
+  // Extract only the properties we need and ensure email is included
   return {
     uid: firebaseUser.uid,
-    email: firebaseUser.email,
+    email: firebaseUser.email || '', // Ensure email is always included, even if empty
     displayName: firebaseUser.displayName,
     photoURL: firebaseUser.photoURL,
     emailVerified: firebaseUser.emailVerified,
@@ -93,7 +93,9 @@ export function AuthProvider({ children }) {
         // Create a new user record with default values
         await set(userRef, {
           ...serializedUser,
+          email: currentUser.email, // Ensure email is stored
           status: 'Available',
+          lastActiveStatus: 'Available', // Track last active status
           bio: '',
           createdAt: serverTimestamp(),
           lastSeen: serverTimestamp(),
@@ -103,13 +105,25 @@ export function AuthProvider({ children }) {
         // If status is missing, update it
         await set(userRef, {
           ...userData,
+          email: currentUser.email, // Ensure email is stored
           status: 'Available',
+          lastActiveStatus: 'Available', // Track last active status
           lastUpdated: serverTimestamp()
         });
+      } else if (!userData.email && currentUser.email) {
+        // If email is missing but is available in auth user, add it
+        await set(ref(db, `users/${currentUser.uid}/email`), currentUser.email);
+      } else if (userData.status === 'Offline' && userData.lastActiveStatus) {
+        // If user is coming back online and has a previous active status, restore it
+        await set(ref(db, `users/${currentUser.uid}/status`), userData.lastActiveStatus);
+      } else if (userData.status !== 'Offline') {
+        // If status is not offline, update lastActiveStatus
+        await set(ref(db, `users/${currentUser.uid}/lastActiveStatus`), userData.status);
       }
       
-      // Set online status
-      await set(ref(db, `users/${currentUser.uid}/status`), 'Available');
+      // Always set online status when user logs in
+      const statusToSet = userData?.lastActiveStatus || 'Available';
+      await set(ref(db, `users/${currentUser.uid}/status`), statusToSet);
       await set(ref(db, `users/${currentUser.uid}/lastSeen`), serverTimestamp());
     } catch (error) {
       console.error("Error ensuring user record:", error);
@@ -191,6 +205,7 @@ export function AuthProvider({ children }) {
       // Update offline status when user leaves
       const currentUser = auth.currentUser;
       if (currentUser) {
+        // Set status to offline but don't change lastActiveStatus
         set(ref(db, `users/${currentUser.uid}/status`), 'Offline');
         set(ref(db, `users/${currentUser.uid}/lastSeen`), serverTimestamp());
       }
