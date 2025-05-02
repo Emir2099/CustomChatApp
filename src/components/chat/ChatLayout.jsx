@@ -11,14 +11,13 @@ import { getDatabase, ref, update } from 'firebase/database';
 
 export default function ChatLayout() {
   const [showProfile, setShowProfile] = useState(false);
-  const [uploadingIcon, setUploadingIcon] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const iconInputRef = useRef(null);
   const { user } = useAuth();
-  const { currentChat, updateChat, createPoll, createAnnouncement, setCurrentChat } = useChat();
+  const { currentChat, createPoll, createAnnouncement, setCurrentChat } = useChat();
   const [currentView, setCurrentView] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount] = useState(0);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['']);
   const [announcement, setAnnouncement] = useState('');
@@ -27,7 +26,6 @@ export default function ChatLayout() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    setUploadingIcon(true);
     try {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -63,8 +61,6 @@ export default function ChatLayout() {
       };
     } catch (error) {
       console.error('Error updating server icon:', error);
-    } finally {
-      setUploadingIcon(false);
     }
   };
 
@@ -91,22 +87,6 @@ export default function ChatLayout() {
             accept=".jpg,.jpeg,.png,.webp"
             className={styles.hiddenInput}
           />
-          <div 
-            className={styles.serverIcon}
-            onClick={() => iconInputRef.current?.click()}
-          >
-            {currentChat?.iconURL ? (
-              <img src={currentChat.iconURL} alt="Server icon" />
-            ) : (
-              <span>{currentChat?.name?.[0]?.toUpperCase()}</span>
-            )}
-            {uploadingIcon && <div className={styles.uploadingOverlay}>...</div>}
-          </div>
-          <div className={styles.logo}>
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <path fill="currentColor" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </div>
           <div className={styles.navItems}>
             <button 
               className={currentView === 'messages' ? styles.active : ''}

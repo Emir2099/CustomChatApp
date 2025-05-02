@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import { auth } from '../../config/firebase';
 import styles from './GroupInfo.module.css';
@@ -9,7 +9,8 @@ export default function GroupInfo() {
     currentChat, 
     updateGroupInfo, 
     generateInviteLink,
-    members 
+    members,
+    setCurrentChat 
   } = useChat();
   const [isEditing, setIsEditing] = useState(false);
   const [groupName, setGroupName] = useState(currentChat?.name || '');
@@ -17,6 +18,8 @@ export default function GroupInfo() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [currentInviteLink, setCurrentInviteLink] = useState('');
   const [creator, setCreator] = useState(null);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const iconInputRef = useRef(null);
 
   useEffect(() => {
     setCurrentInviteLink('');
@@ -44,6 +47,53 @@ export default function GroupInfo() {
     if (groupName.trim() && groupName !== currentChat.name) {
       await updateGroupInfo(currentChat.id, { name: groupName.trim() });
       setIsEditing(false);
+    } else {
+      setIsEditing(false);
+    }
+  };
+
+  const handleGroupIconChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingIcon(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = async () => {
+        const img = new Image();
+        img.src = reader.result;
+        await new Promise(resolve => img.onload = resolve);
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const MAX_SIZE = 200;
+        const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const iconURL = canvas.toDataURL('image/jpeg', 0.5);
+        
+        const chatRef = ref(getDatabase(), `chats/${currentChat.id}`);
+        await update(chatRef, {
+          "info/iconURL": iconURL,
+          "info/lastUpdated": Date.now()
+        });
+        
+        if (currentChat) {
+          setCurrentChat(prevChat => ({
+            ...prevChat,
+            iconURL
+          }));
+        }
+      };
+    } catch (error) {
+      console.error('Error updating group icon:', error);
+    } finally {
+      setUploadingIcon(false);
     }
   };
 
@@ -76,15 +126,43 @@ export default function GroupInfo() {
   return (
     <div className={styles.groupInfo}>
       <div className={styles.header}>
-        <div className={styles.groupAvatar}>
+        <input
+          type="file"
+          ref={iconInputRef}
+          onChange={handleGroupIconChange}
+          accept=".jpg,.jpeg,.png,.webp"
+          className={styles.hiddenInput}
+          style={{ display: 'none' }}
+        />
+        <div 
+          className={`${styles.groupAvatar} ${isEditing ? styles.editableAvatar : ''}`}
+          onClick={() => isEditing && isAdmin && iconInputRef.current?.click()}
+        >
           {avatarURL ? (
-            <img 
-              src={avatarURL} 
-              alt={currentChat.name} 
-            />
+            <>
+              <img 
+                src={avatarURL} 
+                alt={currentChat.name} 
+              />
+              {isEditing && isAdmin && (
+                <div className={styles.avatarOverlay}>
+                  <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                </div>
+              )}
+              {uploadingIcon && <div className={styles.uploadingOverlay}>...</div>}
+            </>
           ) : (
             <div className={styles.groupInitial}>
               {currentChat.name.charAt(0).toUpperCase()}
+              {isEditing && isAdmin && (
+                <div className={styles.avatarOverlay}>
+                  <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                </div>
+              )}
             </div>
           )}
         </div>
