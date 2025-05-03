@@ -207,6 +207,13 @@
   justify-content: center;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  outline: none;
+}
+
+.messageInput button:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5), 0 4px 12px rgba(99, 102, 241, 0.2);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .messageInput button:hover {
@@ -216,7 +223,8 @@
 }
 
 .messageInput button:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
 }
 
 .messageInput button svg {
@@ -590,8 +598,8 @@
   position: absolute;
   bottom: 110px;
   right: 24px;
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   background: #6366f1;
   color: white;
   border: none;
@@ -604,14 +612,26 @@
   z-index: 50;
   animation: popIn 0.3s ease;
   opacity: 0.95;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
   padding: 0;
+  outline: none;
+}
+
+.scrollButton:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5), 0 6px 16px rgba(99, 102, 241, 0.4);
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .scrollButton:hover {
   background: #4f46e5;
   transform: translateY(-2px);
   opacity: 1;
+}
+
+.scrollButton:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
 }
 
 .scrollButton svg {

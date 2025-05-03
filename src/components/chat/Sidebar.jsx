@@ -79,11 +79,9 @@ const Sidebar = () => {
             <div className={styles.avatarContainer}>
               {chat.type === 'group' ? (
                 <div className={styles.groupAvatar}>
-                  {chat.photoURL ? (
+                  {chat.iconURL || chat.photoURL ? (
                     <img 
-                      src={chat.photoURL === chat.thumbnailURL 
-                        ? chat.photoURL 
-                        : chat.photoURL || chat.thumbnailURL} 
+                      src={chat.iconURL || chat.photoURL} 
                       alt={chat.name} 
                     />
                   ) : (
