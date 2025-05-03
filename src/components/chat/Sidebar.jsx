@@ -1,34 +1,53 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import styles from './Sidebar.module.css';
 import CreateGroupModal from './CreateGroupModal';
 import { useChat } from '../../contexts/ChatContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const formatTime = (timestamp) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now - date;
-  
-  if (diff < 60000) return 'now';
-  if (diff < 3600000) return `${Math.floor(diff/60000)}m`;
-  if (diff < 86400000) return `${Math.floor(diff/3600000)}h`;
-  return date.toLocaleDateString();
-};
-
 const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const { chats, currentChat, clearInviteLink, handleChatSelect } = useChat();
-  const { user } = useAuth();
+  useAuth();
   const navigate = useNavigate();
+  const [overflowingChats, setOverflowingChats] = useState({});
+  const chatItemRefs = useRef({});
 
   const onChatSelect = async (chat) => {
     await handleChatSelect(chat);
     clearInviteLink();
     navigate(`/chat/${chat.id}`);
   };
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      const newOverflowState = {};
+      
+      Object.keys(chatItemRefs.current).forEach(chatId => {
+        const chatItem = chatItemRefs.current[chatId];
+        if (!chatItem) return;
+        
+        const badgesContainer = chatItem.querySelector(`.${styles.unreadBadges}`);
+        if (!badgesContainer) return;
+        
+        const chatInfoWidth = chatItem.querySelector(`.${styles.chatInfo}`)?.clientWidth || 0;
+        const chatHeaderWidth = chatItem.querySelector(`.${styles.chatHeader}`)?.clientWidth || 0;
+        const availableWidth = chatInfoWidth - chatHeaderWidth - 20;
+        
+        newOverflowState[chatId] = badgesContainer.scrollWidth > availableWidth;
+      });
+      
+      setOverflowingChats(newOverflowState);
+    };
+    
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    
+    return () => {
+      window.removeEventListener('resize', checkOverflow);
+    };
+  }, [chats]);
 
   const filteredChats = chats.filter(chat => 
     chat.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -75,6 +94,7 @@ const Sidebar = () => {
               ${chat.unreadCount > 0 ? styles.unread : ''} 
               ${currentChat?.id === chat.id ? styles.active : ''}`}
             onClick={() => onChatSelect(chat)}
+            ref={el => chatItemRefs.current[chat.id] = el}
           >
             <div className={styles.avatarContainer}>
               {chat.type === 'group' ? (
@@ -107,31 +127,58 @@ const Sidebar = () => {
               
               {(chat.unreadMessages > 0 || chat.unreadAnnouncements > 0 || chat.unreadPolls > 0) && (
                 <div className={styles.unreadBadges}>
-                  {chat.unreadMessages > 0 && (
-                    <span 
-                      className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
-                      data-tooltip="New messages"
-                    >
-                      {chat.unreadMessages}
-                    </span>
-                  )}
-                  
-                  {chat.unreadAnnouncements > 0 && (
-                    <span 
-                      className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
-                      data-tooltip="New announcements"
-                    >
-                      {chat.unreadAnnouncements}
-                    </span>
-                  )}
-                  
-                  {chat.unreadPolls > 0 && (
-                    <span 
-                      className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
-                      data-tooltip="New polls"
-                    >
-                      {chat.unreadPolls}
-                    </span>
+                  {overflowingChats[chat.id] ? (
+                    <>
+                      {chat.unreadMessages > 0 && (
+                        <span 
+                          className={`${styles.dotBadge} ${styles.messageBadge}`}
+                          data-count={chat.unreadMessages}
+                        />
+                      )}
+                      
+                      {chat.unreadAnnouncements > 0 && (
+                        <span 
+                          className={`${styles.dotBadge} ${styles.announcementBadge}`}
+                          data-count={chat.unreadAnnouncements}
+                        />
+                      )}
+                      
+                      {chat.unreadPolls > 0 && (
+                        <span 
+                          className={`${styles.dotBadge} ${styles.pollBadge}`}
+                          data-count={chat.unreadPolls}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {chat.unreadMessages > 0 && (
+                        <span 
+                          className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
+                          data-tooltip="New messages"
+                        >
+                          {chat.unreadMessages}
+                        </span>
+                      )}
+                      
+                      {chat.unreadAnnouncements > 0 && (
+                        <span 
+                          className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
+                          data-tooltip="New announcements"
+                        >
+                          {chat.unreadAnnouncements}
+                        </span>
+                      )}
+                      
+                      {chat.unreadPolls > 0 && (
+                        <span 
+                          className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
+                          data-tooltip="New polls"
+                        >
+                          {chat.unreadPolls}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               )}
