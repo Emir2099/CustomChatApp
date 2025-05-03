@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChat } from '../../contexts/ChatContext';
-import { auth } from '../../config/firebase';
 import styles from './ChatArea.module.css';
 import React from 'react';
 
@@ -9,6 +8,95 @@ export default function ChatArea() {
   const { currentChat, messages, sendMessage, handleVote } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
+  const messageListRef = useRef(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [newMessageReceived, setNewMessageReceived] = useState(false);
+  const prevMessagesLengthRef = useRef(0);
+  const isAtBottomRef = useRef(true);
+
+  // Auto-scroll to bottom when chat is opened or messages change
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (messageListRef.current) {
+        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        isAtBottomRef.current = true;
+        setShowScrollButton(false);
+      }
+    };
+
+    // Check if new messages have arrived
+    if (messages.length > prevMessagesLengthRef.current) {
+      // If user is already at bottom or this is the first load, scroll to bottom
+      if (isAtBottomRef.current || prevMessagesLengthRef.current === 0) {
+        scrollToBottom();
+      } else {
+        // If user is scrolled up, show the scroll button and animate it
+        setShowScrollButton(true);
+        setNewMessageReceived(true);
+        // Reset animation after 1s
+        setTimeout(() => setNewMessageReceived(false), 1000);
+      }
+    }
+
+    // Scroll to bottom when changing chats
+    if (currentChat && prevMessagesLengthRef.current === 0 && messages.length > 0) {
+      scrollToBottom();
+    }
+
+    prevMessagesLengthRef.current = messages.length;
+    
+    // Reset scroll button when changing chats
+    return () => {
+      if (!currentChat) {
+        setShowScrollButton(false);
+      }
+    };
+  }, [messages, currentChat]);
+
+  // Reset scroll state when chat changes
+  useEffect(() => {
+    // Reset scroll position and button state when changing chats
+    if (currentChat) {
+      setShowScrollButton(false);
+      prevMessagesLengthRef.current = 0;
+      isAtBottomRef.current = true;
+      
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        if (messageListRef.current) {
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [currentChat?.id]);
+
+  // Handle scroll events to show/hide scroll button
+  const handleScroll = () => {
+    if (messageListRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
+      
+      // Show button when scrolled up (not at bottom)
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+      
+      // Update button visibility based on scroll position
+      if (isNearBottom) {
+        if (showScrollButton) setShowScrollButton(false);
+        isAtBottomRef.current = true;
+      } else {
+        if (!showScrollButton) setShowScrollButton(true);
+        isAtBottomRef.current = false;
+      }
+    }
+  };
+
+  const scrollToBottom = () => {
+    if (messageListRef.current) {
+      messageListRef.current.scrollTo({
+        top: messageListRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -108,7 +196,11 @@ export default function ChatArea() {
         </div>
       </div>
 
-      <div className={styles.messageList}>
+      <div 
+        className={styles.messageList} 
+        ref={messageListRef} 
+        onScroll={handleScroll}
+      >
         {messages.map((message, index) => (
           <React.Fragment key={message.id}>
             {shouldShowDate(message, index, messages) && (
@@ -191,6 +283,19 @@ export default function ChatArea() {
           </React.Fragment>
         ))}
       </div>
+
+      {showScrollButton && (
+        <button 
+          type="button"
+          className={`${styles.scrollButton} ${newMessageReceived ? styles.bounce : ''}`} 
+          onClick={scrollToBottom}
+          aria-label="Scroll to bottom"
+        >
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" strokeWidth="0">
+            <path d="M11 4.4L18.6 12 20 10.6l-9-9-9 9L3.4 12 11 4.4z" transform="rotate(180 10 10)" />
+          </svg>
+        </button>
+      )}
 
       <form onSubmit={handleSend} className={styles.messageInput}>
         <input

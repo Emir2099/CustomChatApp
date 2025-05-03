@@ -5,6 +5,7 @@
   background: white;
   border-radius: 16px;
   overflow: hidden;
+  position: relative;
 }
 
 .header {
@@ -67,6 +68,7 @@
   flex-direction: column;
   gap: 12px;
   background: white;
+  position: relative;
 }
 
 .message {
@@ -167,6 +169,7 @@
   background: white;
   border-top: 1px solid #e5e7eb;
   position: relative;
+  z-index: 5;
 }
 
 .messageInput input {
@@ -581,4 +584,65 @@
 /* Adjust bubble padding for messages with sender name */
 .message.received .bubble {
   padding-top: 8px;
+}
+
+.scrollButton {
+  position: absolute;
+  bottom: 110px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: popIn 0.3s ease;
+  opacity: 0.95;
+}
+
+.scrollButton svg {
+  width: 36px;
+  height: 36px;
+  fill: white;
+  display: block;
+}
+
+.scrollButton:hover {
+  background: #4f46e5;
+  transform: translateY(-2px);
+  opacity: 1;
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.bounce {
+  animation: bounce 0.5s ease;
 } 

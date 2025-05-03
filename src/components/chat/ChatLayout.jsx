@@ -21,6 +21,7 @@ export default function ChatLayout() {
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['']);
   const [announcement, setAnnouncement] = useState('');
+  const chatAreaRef = useRef(null);
 
   const handleServerIconChange = async (e) => {
     const file = e.target.files?.[0];
@@ -133,7 +134,7 @@ export default function ChatLayout() {
           </button>
         </nav>
 
-        <main className={styles.main}>
+        <main className={styles.main} ref={chatAreaRef}>
           <Sidebar />
           <ChatArea />
           <div className={styles.rightPanel}>
