@@ -10,58 +10,72 @@ export default function ChatArea() {
   const [newMessage, setNewMessage] = useState('');
   const messageListRef = useRef(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [buttonFading, setButtonFading] = useState(false);
   const [newMessageReceived, setNewMessageReceived] = useState(false);
   const prevMessagesLengthRef = useRef(0);
   const isAtBottomRef = useRef(true);
+  const [userScrolling, setUserScrolling] = useState(false);
+  const userManuallyScrolledRef = useRef(false);
+  const isScrollingToBottomRef = useRef(false);
+  const recentlySentMessageRef = useRef(false);
 
-  // Auto-scroll to bottom when chat is opened or messages change
+  // Force check if scrolling is actually needed
+  const checkIfScrollNeeded = () => {
+    if (!messageListRef.current) return false;
+    
+    const { scrollHeight, clientHeight } = messageListRef.current;
+    // If content is not tall enough to scroll, no button needed
+    return scrollHeight > clientHeight + 50; // Adding buffer
+  };
+
+  // Auto-scroll to bottom when chat is opened or messages change - but ONLY in specific cases
   useEffect(() => {
-    const scrollToBottom = () => {
-      if (messageListRef.current) {
-        messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-        isAtBottomRef.current = true;
-        setShowScrollButton(false);
-      }
-    };
+    // Only scroll automatically in these cases:
+    // 1. First load of messages (prevMessagesLengthRef.current === 0)
+    // 2. When user was already at the bottom when new message arrived
+    // 3. When user themselves sent the message (captured in handleSend)
+    // Do NOT auto-scroll when user has manually scrolled up to read history
 
-    // Check if new messages have arrived
-    if (messages.length > prevMessagesLengthRef.current) {
-      // If user is already at bottom or this is the first load, scroll to bottom
-      if (isAtBottomRef.current || prevMessagesLengthRef.current === 0) {
-        scrollToBottom();
-      } else {
-        // If user is scrolled up, show the scroll button and animate it
+    const isFirstLoad = prevMessagesLengthRef.current === 0;
+    const newMessagesArrived = messages.length > prevMessagesLengthRef.current;
+    
+    if (messageListRef.current && ((isFirstLoad && messages.length > 0) || 
+        (newMessagesArrived && isAtBottomRef.current && !userManuallyScrolledRef.current))) {
+      // Auto-scroll in safe cases
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    } else if (newMessagesArrived && !isAtBottomRef.current) {
+      // If new messages arrived but user is scrolled up, show notification
+      if (checkIfScrollNeeded() && !recentlySentMessageRef.current) {
         setShowScrollButton(true);
         setNewMessageReceived(true);
-        // Reset animation after 1s
         setTimeout(() => setNewMessageReceived(false), 1000);
       }
     }
 
-    // Scroll to bottom when changing chats
-    if (currentChat && prevMessagesLengthRef.current === 0 && messages.length > 0) {
-      scrollToBottom();
-    }
-
     prevMessagesLengthRef.current = messages.length;
     
-    // Reset scroll button when changing chats
-    return () => {
-      if (!currentChat) {
-        setShowScrollButton(false);
-      }
-    };
-  }, [messages, currentChat]);
+    // Clear recent message flag after a delay
+    if (recentlySentMessageRef.current) {
+      setTimeout(() => {
+        recentlySentMessageRef.current = false;
+      }, 1000);
+    }
+  }, [messages]);
 
   // Reset scroll state when chat changes
   useEffect(() => {
-    // Reset scroll position and button state when changing chats
     if (currentChat) {
-      setShowScrollButton(false);
+      if (showScrollButton) {
+        setShowScrollButton(false);
+        setButtonFading(false);
+      }
       prevMessagesLengthRef.current = 0;
       isAtBottomRef.current = true;
+      userManuallyScrolledRef.current = false;
+      isScrollingToBottomRef.current = false;
+      recentlySentMessageRef.current = false;
       
-      // Small delay to ensure DOM is ready
+      // Reset and scroll to bottom when changing chats
       setTimeout(() => {
         if (messageListRef.current) {
           messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
@@ -72,38 +86,111 @@ export default function ChatArea() {
 
   // Handle scroll events to show/hide scroll button
   const handleScroll = () => {
-    if (messageListRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
-      
-      // Show button when scrolled up (not at bottom)
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
-      
-      // Update button visibility based on scroll position
-      if (isNearBottom) {
-        if (showScrollButton) setShowScrollButton(false);
-        isAtBottomRef.current = true;
-      } else {
-        if (!showScrollButton) setShowScrollButton(true);
-        isAtBottomRef.current = false;
+    // Don't process scroll events during programmatic scrolling
+    if (!messageListRef.current || isScrollingToBottomRef.current || recentlySentMessageRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
+    
+    // Only show button if there's actually enough content to scroll
+    if (!checkIfScrollNeeded()) {
+      if (showScrollButton) {
+        setShowScrollButton(false);
+        setButtonFading(false);
       }
+      return;
+    }
+    
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+    
+    // Mark if user initiated this scroll
+    if (!userScrolling) {
+      setUserScrolling(true);
+      userManuallyScrolledRef.current = true;
+      setTimeout(() => setUserScrolling(false), 150); // Debounce
+    }
+    
+    if (isNearBottom) {
+      if (showScrollButton && !buttonFading) {
+        setShowScrollButton(false);
+        setButtonFading(false);
+      }
+      isAtBottomRef.current = true;
+    } else {
+      if (!showScrollButton && !buttonFading && !isScrollingToBottomRef.current) {
+        setShowScrollButton(true);
+      }
+      isAtBottomRef.current = false;
     }
   };
 
-  const scrollToBottom = () => {
-    if (messageListRef.current) {
-      messageListRef.current.scrollTo({
-        top: messageListRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
+  const scrollToBottom = (smooth = true) => {
+    if (!messageListRef.current) return;
+    
+    // Set a flag to prevent button flicker during scroll
+    isScrollingToBottomRef.current = true;
+    
+    // Immediately hide button and prevent any reappearance during scrolling
+    setShowScrollButton(false);
+    setButtonFading(false);
+    
+    // Scroll to bottom
+    messageListRef.current.scrollTo({
+      top: messageListRef.current.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+    
+    // Reset scroll flags after animation completes
+    userManuallyScrolledRef.current = false;
+    setTimeout(() => {
+      isScrollingToBottomRef.current = false;
+      isAtBottomRef.current = true;
+    }, 700); // Extended timeout to ensure scroll completes
   };
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (newMessage.trim()) {
-      sendMessage(newMessage.trim());
-      setNewMessage('');
-    }
+    if (!newMessage.trim()) return;
+    
+    const message = newMessage.trim();
+    setNewMessage('');
+    
+    // Mark as recently sent to prevent button from showing
+    recentlySentMessageRef.current = true;
+    
+    // Send message first
+    sendMessage(message);
+    
+    // User sent a message, so they want to see it - safe to scroll
+    userManuallyScrolledRef.current = false;
+    isScrollingToBottomRef.current = true;
+    
+    // Immediately hide button and prevent any reappearance during scrolling
+    setShowScrollButton(false);
+    setButtonFading(false);
+    
+    // Wait for the DOM to update with the new message before scrolling
+    requestAnimationFrame(() => {
+      // Use a longer timeout to ensure smooth animation after message is rendered
+      setTimeout(() => {
+        if (messageListRef.current) {
+          messageListRef.current.scrollTo({
+            top: messageListRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+          
+          // Reset lock after scroll completes but keep the recently sent flag
+          setTimeout(() => {
+            isScrollingToBottomRef.current = false;
+            isAtBottomRef.current = true;
+            // Double-check that button is hidden
+            if (showScrollButton) {
+              setShowScrollButton(false);
+              setButtonFading(false);
+            }
+          }, 700);
+        }
+      }, 150); // Slightly longer delay for smoother animation
+    });
   };
 
   const formatTime = (timestamp) => {
@@ -284,15 +371,15 @@ export default function ChatArea() {
         ))}
       </div>
 
-      {showScrollButton && (
+      {(showScrollButton || buttonFading) && (
         <button 
           type="button"
-          className={`${styles.scrollButton} ${newMessageReceived ? styles.bounce : ''}`} 
-          onClick={scrollToBottom}
+          className={`${styles.scrollButton} ${newMessageReceived ? styles.bounce : ''} ${buttonFading ? styles.fadeOut : ''}`} 
+          onClick={() => scrollToBottom(true)}
           aria-label="Scroll to bottom"
         >
           <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" strokeWidth="0">
-            <path d="M11 4.4L18.6 12 20 10.6l-9-9-9 9L3.4 12 11 4.4z" transform="rotate(180 10 10)" />
+            <path d="M12 17.5l-6-6 1.4-1.4 4.6 4.6 4.6-4.6L18 11.5z" />
           </svg>
         </button>
       )}

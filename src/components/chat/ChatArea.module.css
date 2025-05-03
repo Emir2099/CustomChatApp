@@ -604,19 +604,29 @@
   z-index: 50;
   animation: popIn 0.3s ease;
   opacity: 0.95;
-}
-
-.scrollButton svg {
-  width: 36px;
-  height: 36px;
-  fill: white;
-  display: block;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  padding: 0;
 }
 
 .scrollButton:hover {
   background: #4f46e5;
   transform: translateY(-2px);
   opacity: 1;
+}
+
+.scrollButton svg {
+  width: 28px;
+  height: 28px;
+  fill: white;
+  display: block;
+  margin: 0 auto;
+  position: relative;
+}
+
+.scrollButton.fadeOut {
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  pointer-events: none;
 }
 
 @keyframes popIn {
