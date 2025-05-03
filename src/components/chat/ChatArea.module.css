@@ -675,4 +675,343 @@
 
 .bounce {
   animation: bounce 0.5s ease;
-} 
+}
+
+/* File-related styles */
+.fileMessageContainer {
+  max-width: 90%;
+  margin-bottom: 16px;
+}
+
+.fileMessageContainer.sent {
+  margin-left: auto;
+  align-items: flex-end;
+}
+
+.fileMessageContainer.received {
+  margin-right: auto;
+  align-items: flex-start;
+}
+
+.message.sent .fileMessage {
+  background-color: #6366f1;
+  color: white;
+  box-shadow: 0 3px 8px rgba(99, 102, 241, 0.2);
+}
+
+.fileMessage {
+  background-color: #f3f4f6;
+  border-radius: 12px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  padding: 12px;
+  margin-top: 4px;
+  width: 100%;
+  max-width: 350px;
+  transition: transform 0.2s ease;
+}
+
+.fileMessage:hover {
+  transform: translateY(-2px);
+}
+
+.fileHeader {
+  margin-bottom: 10px;
+}
+
+.imagePreview {
+  width: 100%;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.imagePreview img {
+  width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+}
+
+.message.sent .imagePreview img {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.fileIcon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+  background-color: rgba(99, 102, 241, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.fileIcon svg {
+  width: 100%;
+  height: 100%;
+  stroke: #6366f1;
+}
+
+.message.sent .fileIcon {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.message.sent .fileIcon svg {
+  stroke: white;
+}
+
+.fileInfo {
+  margin-bottom: 12px;
+}
+
+.fileName {
+  font-weight: 500;
+  font-size: 14px;
+  margin-bottom: 4px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.fileSize {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.downloadButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+  width: 100%;
+}
+
+.message.sent .downloadButton {
+  background-color: white;
+  color: #6366f1;
+}
+
+.downloadButton:hover {
+  background-color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+.message.sent .downloadButton:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.downloadButton:active {
+  transform: translateY(1px);
+}
+
+.downloadButton svg {
+  width: 16px;
+  height: 16px;
+  stroke: white;
+}
+
+.message.sent .downloadButton svg {
+  stroke: #6366f1;
+}
+
+/* File upload styles */
+.messageForm {
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  border-top: 1px solid #e5e7eb;
+  position: relative;
+  z-index: 5;
+}
+
+.fileError {
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #e53935;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  animation: fadeIn 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inputContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.messageInput {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 24px;
+  font-size: 15px;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.messageInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: white;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.messageInput::placeholder {
+  color: #9ca3af;
+}
+
+.sendButton, .attachButton {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: #6366f1;
+  color: white;
+  border-radius: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.attachButton {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.sendButton:focus, .attachButton:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5), 0 4px 12px rgba(99, 102, 241, 0.2);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.attachButton:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3), 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.sendButton:hover, .attachButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.sendButton:hover {
+  background: #4f46e5;
+}
+
+.attachButton:hover {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.sendButton:active, .attachButton:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.sendButton svg, .attachButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+.sendButton svg {
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.sendButton:hover svg {
+  transform: rotate(-45deg) scale(1.1);
+}
+
+/* File upload progress */
+.uploadingFile {
+  margin-bottom: 10px;
+  max-width: 80%;
+}
+
+.uploadProgress {
+  background-color: rgba(var(--primary-color-rgb), 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  width: 100%;
+}
+
+.progressBarContainer {
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.uploadError {
+  color: #e53935;
+}
+
+/* Animation for message entry */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Animation for new message indicator pulse */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.newMessageIndicator {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  background-color: #ff5252;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+/* Animation for bounce */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.bounce {
+  animation: bounce 0.5s ease;
+}

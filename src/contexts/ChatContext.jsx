@@ -6,6 +6,16 @@ import PropTypes from 'prop-types';
 
 const ChatContext = createContext();
 
+// Add file size limit constant
+const FILE_SIZE_LIMIT = 5 * 1024 * 1024; // 5MB
+// Define allowed file types
+const ALLOWED_FILE_TYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 
+  'application/pdf', 'text/plain',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+];
+
 // Helper function to check if objects are deeply equal
 const isEqual = (obj1, obj2) => {
   if (obj1 === obj2) return true;
@@ -45,6 +55,7 @@ export function ChatProvider({ children }) {
   const [announcements, setAnnouncements] = useState([]);
   const [polls, setPolls] = useState([]);
   const [inviteLink, setInviteLink] = useState('');
+  const [fileUploads, setFileUploads] = useState({});
   
   // Use refs to track previous values and listeners
   const chatListenersRef = useRef([]);
@@ -291,7 +302,101 @@ export function ChatProvider({ children }) {
     }
   }, [currentChat, user]);
 
+  // Send a file message
+  const sendFileMessage = useCallback(async (file, progressCallback) => {
+    if (!currentChat?.id || !user || !file) return null;
+    
+    // Check file size
+    if (file.size > FILE_SIZE_LIMIT) {
+      throw new Error(`File size exceeds ${FILE_SIZE_LIMIT / (1024 * 1024)}MB limit`);
+    }
+    
+    // Check file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      throw new Error('File type not supported');
+    }
 
+    // Generate a unique ID for this upload - moved outside try block to fix scope
+    const uploadId = Math.random().toString(36).substring(2, 15);
+
+    try {
+      // Add to uploads tracking
+      setFileUploads(prev => ({
+        ...prev,
+        [uploadId]: { progress: 0, filename: file.name }
+      }));
+      
+      // Convert file to base64 (simulating upload)
+      // This will be slow for large files but works without a server
+      const base64 = await fileToBase64(file);
+      
+      // Update progress to simulate upload
+      for (let i = 10; i <= 90; i += 10) {
+        setFileUploads(prev => ({
+          ...prev,
+          [uploadId]: { ...prev[uploadId], progress: i }
+        }));
+        if (progressCallback) progressCallback(i);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Create the message with file data
+      const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
+      const message = {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        fileCategory: getFileCategory(file.type),
+        fileData: base64,
+        sender: user.uid,
+        senderName: user.displayName || user.email,
+        timestamp: serverTimestamp(),
+        type: 'file'
+      };
+
+      await set(messageRef, message);
+      
+      // Complete progress
+      setFileUploads(prev => ({
+        ...prev,
+        [uploadId]: { ...prev[uploadId], progress: 100 }
+      }));
+      if (progressCallback) progressCallback(100);
+      
+      // Update chat info
+      const updates = {};
+      updates[`chats/${currentChat.id}/info/lastMessage`] = `${user.displayName || 'User'} sent a file: ${file.name}`;
+      updates[`chats/${currentChat.id}/info/lastMessageTime`] = serverTimestamp();
+      updates[`chats/${currentChat.id}/info/lastMessageSender`] = user.uid;
+      updates[`chats/${currentChat.id}/info/lastMessageSenderName`] = user.displayName || user.email;
+      
+      // Update sender's lastRead
+      updates[`users/${user.uid}/chats/${currentChat.id}/lastRead`] = serverTimestamp();
+      
+      await update(ref(db), updates);
+      
+      // Clear upload from state after a delay
+      setTimeout(() => {
+        setFileUploads(prev => {
+          const newState = { ...prev };
+          delete newState[uploadId];
+          return newState;
+        });
+      }, 2000);
+      
+      return message;
+    } catch (error) {
+      console.error('Error sending file:', error);
+      
+      // Update uploads tracking with error
+      setFileUploads(prev => ({
+        ...prev,
+        [uploadId]: { ...prev[uploadId], error: error.message }
+      }));
+      
+      throw error;
+    }
+  }, [currentChat, user]);
 
   const createGroup = useCallback(async (name, members) => {
     if (!user) {
@@ -600,6 +705,26 @@ export function ChatProvider({ children }) {
     }
   }, [currentChat, user]);
 
+  // Convert file to base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Get file type category
+  const getFileCategory = (mimeType) => {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType === 'application/pdf') return 'pdf';
+    if (mimeType.includes('word')) return 'document';
+    if (mimeType.includes('excel') || mimeType.includes('sheet')) return 'spreadsheet';
+    if (mimeType === 'text/plain') return 'text';
+    return 'file';
+  };
+
   // Provide context with all memoized values and functions
   const contextValue = {
     currentChat,
@@ -607,6 +732,8 @@ export function ChatProvider({ children }) {
     chats,
     messages,
     sendMessage,
+    sendFileMessage,
+    fileUploads,
     createGroup,
     members,
     users,
@@ -623,7 +750,9 @@ export function ChatProvider({ children }) {
     clearInviteLink,
     generateInviteLink,
     markChatAsRead,
-    handleChatSelect
+    handleChatSelect,
+    FILE_SIZE_LIMIT,
+    ALLOWED_FILE_TYPES
   };
 
   return (

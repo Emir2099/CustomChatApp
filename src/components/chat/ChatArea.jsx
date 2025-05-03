@@ -5,9 +5,22 @@ import styles from './ChatArea.module.css';
 import React from 'react';
 
 export default function ChatArea() {
-  const { currentChat, messages, sendMessage, handleVote, markChatAsRead } = useChat();
+  const { 
+    currentChat, 
+    messages, 
+    sendMessage, 
+    sendFileMessage, 
+    fileUploads,
+    handleVote, 
+    markChatAsRead,
+    FILE_SIZE_LIMIT,
+    ALLOWED_FILE_TYPES
+  } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
+  const [uploadProgress, setUploadProgress] = useState({});
+  const [fileUploadError, setFileUploadError] = useState('');
+  const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [buttonFading, setButtonFading] = useState(false);
@@ -62,7 +75,8 @@ export default function ChatArea() {
       if (checkIfScrollNeeded() && !recentlySentMessageRef.current) {
         setShowScrollButton(true);
         setNewMessageReceived(true);
-        setTimeout(() => setNewMessageReceived(false), 1000);
+        // Don't reset newMessageReceived here - it should remain true
+        // until the user scrolls to the bottom
       }
     }
 
@@ -104,7 +118,7 @@ export default function ChatArea() {
     // Don't process scroll events during programmatic scrolling
     if (!messageListRef.current || isScrollingToBottomRef.current || recentlySentMessageRef.current || !currentChat?.id) return;
     
-    const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
     
     // Only show button if there's actually enough content to scroll
     if (!checkIfScrollNeeded()) {
@@ -116,14 +130,14 @@ export default function ChatArea() {
     }
     
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
-    
+      
     // Mark if user initiated this scroll
     if (!userScrolling) {
       setUserScrolling(true);
       userManuallyScrolledRef.current = true;
       setTimeout(() => setUserScrolling(false), 150); // Debounce
     }
-    
+      
     if (isNearBottom) {
       // User has scrolled to the bottom
       if (showScrollButton && !buttonFading) {
@@ -131,6 +145,11 @@ export default function ChatArea() {
         setButtonFading(false);
       }
       isAtBottomRef.current = true;
+      
+      // Reset new message notification when user scrolls to bottom
+      if (newMessageReceived) {
+        setNewMessageReceived(false);
+      }
       
       // If at bottom, ALWAYS mark messages as read, regardless of previous status
       // This ensures messages are marked as read whenever user sees them
@@ -158,6 +177,9 @@ export default function ChatArea() {
     // Immediately hide button and prevent any reappearance during scrolling
     setShowScrollButton(false);
     setButtonFading(false);
+    
+    // Reset the new message indicator when scrolling to bottom
+    setNewMessageReceived(false);
     
     // Scroll to bottom
     messageListRef.current.scrollTo({
@@ -221,6 +243,163 @@ export default function ChatArea() {
         }
       }, 150); // Slightly longer delay for smoother animation
     });
+  };
+
+  // Handle file selection
+  const handleFileSelect = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Reset file input to allow re-uploading the same file
+    fileInputRef.current.value = '';
+    
+    // Validate file size
+    if (file.size > FILE_SIZE_LIMIT) {
+      setFileUploadError(`File size exceeds ${FILE_SIZE_LIMIT / (1024 * 1024)}MB limit`);
+      setTimeout(() => setFileUploadError(''), 5000);
+      return;
+    }
+    
+    // Validate file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      setFileUploadError('File type not supported');
+      setTimeout(() => setFileUploadError(''), 5000);
+      return;
+    }
+
+    try {
+      // Prepare for upload - clear any previous errors
+      setFileUploadError('');
+      
+      // Send the file and track progress
+      await sendFileMessage(file, (progress) => {
+        setUploadProgress(prev => ({...prev, [file.name]: progress}));
+      });
+      
+      // Mark as recently sent to prevent button from showing
+      recentlySentMessageRef.current = true;
+      
+      // Always mark messages as read when sending a message
+      markChatAsRead(currentChat.id);
+      hasUnreadMessagesRef.current = false;
+      
+      // User sent a message, so they want to see it - safe to scroll
+      userManuallyScrolledRef.current = false;
+      isScrollingToBottomRef.current = true;
+      
+      // Immediately hide button and prevent any reappearance during scrolling
+      setShowScrollButton(false);
+      setButtonFading(false);
+      
+      // Clear progress after a delay
+      setTimeout(() => {
+        setUploadProgress(prev => {
+          const newState = {...prev};
+          delete newState[file.name];
+          return newState;
+        });
+      }, 2000);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setFileUploadError(error.message || 'Failed to upload file');
+      setTimeout(() => setFileUploadError(''), 5000);
+    }
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    else return (bytes / 1048576).toFixed(1) + ' MB';
+  };
+
+  // Handle download for file messages
+  const handleDownload = (fileData, fileName) => {
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = fileData;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Render file preview based on file type
+  const renderFilePreview = (message) => {
+    const { fileCategory, fileData, fileName, fileSize } = message;
+    
+    return (
+      <div className={styles.fileMessage}>
+        <div className={styles.fileHeader}>
+          {fileCategory === 'image' ? (
+            <div className={styles.imagePreview}>
+              <img src={fileData} alt={fileName} />
+            </div>
+          ) : (
+            <div className={styles.fileIcon}>
+              {fileCategory === 'pdf' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 3v4a1 1 0 001 1h4" />
+                  <path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z" />
+                  <path d="M9 9h1v1H9z" />
+                  <path d="M9 13h6" />
+                  <path d="M9 17h6" />
+                </svg>
+              )}
+              {fileCategory === 'document' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M16 13H8" />
+                  <path d="M16 17H8" />
+                  <path d="M10 9H8" />
+                </svg>
+              )}
+              {fileCategory === 'spreadsheet' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <path d="M3 9h18" />
+                  <path d="M3 15h18" />
+                  <path d="M9 3v18" />
+                  <path d="M15 3v18" />
+                </svg>
+              )}
+              {(fileCategory === 'text' || fileCategory === 'file') && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M16 13H8" />
+                  <path d="M16 17H8" />
+                  <path d="M10 9H8" />
+                </svg>
+              )}
+            </div>
+          )}
+        </div>
+        <div className={styles.fileInfo}>
+          <div className={styles.fileName}>{fileName}</div>
+          <div className={styles.fileSize}>{formatFileSize(fileSize)}</div>
+        </div>
+        <button 
+          className={styles.downloadButton}
+          onClick={() => handleDownload(fileData, fileName)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M12 15V3" />
+          </svg>
+          Download
+        </button>
+      </div>
+    );
   };
 
   const formatTime = (timestamp) => {
@@ -329,6 +508,7 @@ export default function ChatArea() {
               className={`${styles.message} ${
                 message.type === 'poll' ? styles.pollMessage :
                 message.type === 'announcement' ? styles.announcementMessage : 
+                message.type === 'file' ? (message.sender === user?.uid ? `${styles.fileMessageContainer} ${styles.sent}` : `${styles.fileMessageContainer} ${styles.received}`) :
                 message.sender === user?.uid ? styles.sent : styles.received
               }`}
             >
@@ -396,12 +576,45 @@ export default function ChatArea() {
                   </span>
                 </div>
               )}
+              {message.type === 'file' && (
+                <>
+                  {message.sender !== user?.uid && (
+                    <div className={styles.sender}>{message.senderName}</div>
+                  )}
+                  {renderFilePreview(message)}
+                  <div className={styles.timestamp}>
+                    {formatTime(message.timestamp)}
+                  </div>
+                </>
+              )}
             </div>
           </React.Fragment>
         ))}
+        
+        {/* Display upload progress for files currently being uploaded */}
+        {Object.entries(fileUploads).map(([id, data]) => (
+          <div key={id} className={`${styles.message} ${styles.sent} ${styles.uploadingFile}`}>
+            <div className={styles.uploadProgress}>
+              <div className={styles.fileName}>{data.filename}</div>
+              <div className={styles.progressBarContainer}>
+                <div 
+                  className={styles.progressBar} 
+                  style={{width: `${data.progress}%`}}
+                ></div>
+              </div>
+              <div className={styles.progressText}>
+                {data.error ? 
+                  <span className={styles.uploadError}>{data.error}</span> : 
+                  `${data.progress}%`
+                }
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {(showScrollButton || buttonFading) && (
+      {/* New messages notification button */}
+      {showScrollButton && (
         <button 
           type="button"
           className={`${styles.scrollButton} ${newMessageReceived ? styles.bounce : ''} ${buttonFading ? styles.fadeOut : ''}`} 
@@ -417,21 +630,49 @@ export default function ChatArea() {
           <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" strokeWidth="0">
             <path d="M12 17.5l-6-6 1.4-1.4 4.6 4.6 4.6-4.6L18 11.5z" />
           </svg>
+          {newMessageReceived && <span className={styles.newMessageIndicator}></span>}
         </button>
       )}
 
-      <form onSubmit={handleSend} className={styles.messageInput}>
+      <form onSubmit={handleSend} className={styles.messageForm}>
+        {fileUploadError && (
+          <div className={styles.fileError}>
+            {fileUploadError}
+          </div>
+        )}
+        <div className={styles.inputContainer}>
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            className={styles.messageInput}
+          />
+          <button 
+            type="button" 
+            className={styles.attachButton}
+            onClick={handleFileSelect}
+            title="Attach file"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+            </svg>
+          </button>
+          <button type="submit" className={styles.sendButton} title="Send message">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Hidden file input */}
         <input
-          type="text"
-          placeholder="Type your message..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+          accept={ALLOWED_FILE_TYPES.join(',')}
         />
-        <button type="submit" title="Send message">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-          </svg>
-        </button>
       </form>
     </div>
   );

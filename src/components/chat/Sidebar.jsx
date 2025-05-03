@@ -152,31 +152,31 @@ const Sidebar = () => {
                     </>
                   ) : (
                     <>
-                      {chat.unreadMessages > 0 && (
-                        <span 
-                          className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
-                          data-tooltip="New messages"
-                        >
-                          {chat.unreadMessages}
-                        </span>
-                      )}
-                      
-                      {chat.unreadAnnouncements > 0 && (
-                        <span 
-                          className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
-                          data-tooltip="New announcements"
-                        >
-                          {chat.unreadAnnouncements}
-                        </span>
-                      )}
-                      
-                      {chat.unreadPolls > 0 && (
-                        <span 
-                          className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
-                          data-tooltip="New polls"
-                        >
-                          {chat.unreadPolls}
-                        </span>
+                  {chat.unreadMessages > 0 && (
+                    <span 
+                      className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
+                      data-tooltip="New messages"
+                    >
+                      {chat.unreadMessages}
+                    </span>
+                  )}
+                  
+                  {chat.unreadAnnouncements > 0 && (
+                    <span 
+                      className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
+                      data-tooltip="New announcements"
+                    >
+                      {chat.unreadAnnouncements}
+                    </span>
+                  )}
+                  
+                  {chat.unreadPolls > 0 && (
+                    <span 
+                      className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
+                      data-tooltip="New polls"
+                    >
+                      {chat.unreadPolls}
+                    </span>
                       )}
                     </>
                   )}
