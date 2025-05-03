@@ -5,7 +5,7 @@ import styles from './ChatArea.module.css';
 import React from 'react';
 
 export default function ChatArea() {
-  const { currentChat, messages, sendMessage, handleVote } = useChat();
+  const { currentChat, messages, sendMessage, handleVote, markChatAsRead } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
   const messageListRef = useRef(null);
@@ -18,6 +18,7 @@ export default function ChatArea() {
   const userManuallyScrolledRef = useRef(false);
   const isScrollingToBottomRef = useRef(false);
   const recentlySentMessageRef = useRef(false);
+  const hasUnreadMessagesRef = useRef(false);
 
   // Force check if scrolling is actually needed
   const checkIfScrollNeeded = () => {
@@ -27,6 +28,19 @@ export default function ChatArea() {
     // If content is not tall enough to scroll, no button needed
     return scrollHeight > clientHeight + 50; // Adding buffer
   };
+
+  // Check if the current chat has unread messages
+  useEffect(() => {
+    if (currentChat) {
+      // Check if current chat has any unread messages
+      const hasUnread = 
+        (currentChat.unreadMessages > 0 || 
+         currentChat.unreadAnnouncements > 0 || 
+         currentChat.unreadPolls > 0);
+      
+      hasUnreadMessagesRef.current = hasUnread;
+    }
+  }, [currentChat]);
 
   // Auto-scroll to bottom when chat is opened or messages change - but ONLY in specific cases
   useEffect(() => {
@@ -74,6 +88,7 @@ export default function ChatArea() {
       userManuallyScrolledRef.current = false;
       isScrollingToBottomRef.current = false;
       recentlySentMessageRef.current = false;
+      hasUnreadMessagesRef.current = false;
       
       // Reset and scroll to bottom when changing chats
       setTimeout(() => {
@@ -87,7 +102,7 @@ export default function ChatArea() {
   // Handle scroll events to show/hide scroll button
   const handleScroll = () => {
     // Don't process scroll events during programmatic scrolling
-    if (!messageListRef.current || isScrollingToBottomRef.current || recentlySentMessageRef.current) return;
+    if (!messageListRef.current || isScrollingToBottomRef.current || recentlySentMessageRef.current || !currentChat?.id) return;
     
     const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
     
@@ -110,11 +125,17 @@ export default function ChatArea() {
     }
     
     if (isNearBottom) {
+      // User has scrolled to the bottom
       if (showScrollButton && !buttonFading) {
         setShowScrollButton(false);
         setButtonFading(false);
       }
       isAtBottomRef.current = true;
+      
+      // If at bottom, ALWAYS mark messages as read, regardless of previous status
+      // This ensures messages are marked as read whenever user sees them
+      markChatAsRead(currentChat.id);
+      hasUnreadMessagesRef.current = false;
     } else {
       if (!showScrollButton && !buttonFading && !isScrollingToBottomRef.current) {
         setShowScrollButton(true);
@@ -124,7 +145,12 @@ export default function ChatArea() {
   };
 
   const scrollToBottom = (smooth = true) => {
-    if (!messageListRef.current) return;
+    if (!messageListRef.current || !currentChat?.id) return;
+    
+    // DIRECTLY mark messages as read when scrolling to bottom via button click
+    // Don't check for hasUnreadMessagesRef - always mark as read when button is clicked
+    markChatAsRead(currentChat.id);
+    hasUnreadMessagesRef.current = false;
     
     // Set a flag to prevent button flicker during scroll
     isScrollingToBottomRef.current = true;
@@ -149,7 +175,7 @@ export default function ChatArea() {
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !currentChat?.id) return;
     
     const message = newMessage.trim();
     setNewMessage('');
@@ -159,6 +185,10 @@ export default function ChatArea() {
     
     // Send message first
     sendMessage(message);
+    
+    // Always mark messages as read when sending a message
+    markChatAsRead(currentChat.id);
+    hasUnreadMessagesRef.current = false;
     
     // User sent a message, so they want to see it - safe to scroll
     userManuallyScrolledRef.current = false;
@@ -375,7 +405,13 @@ export default function ChatArea() {
         <button 
           type="button"
           className={`${styles.scrollButton} ${newMessageReceived ? styles.bounce : ''} ${buttonFading ? styles.fadeOut : ''}`} 
-          onClick={() => scrollToBottom(true)}
+          onClick={() => {
+            // Directly mark messages as read when button is clicked
+            if (currentChat?.id) {
+              markChatAsRead(currentChat.id);
+            }
+            scrollToBottom(true);
+          }}
           aria-label="Scroll to bottom"
         >
           <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" strokeWidth="0">
