@@ -115,13 +115,42 @@ export default function MembersList() {
     
     const rect = e.currentTarget.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
     
-    // Calculate position - show on right side if there's room, otherwise left
-    const showOnRight = rect.right + 250 < viewportWidth;
+    // Tooltip dimensions (approximate)
+    const tooltipWidth = 250;
+    const tooltipHeight = 300; // Approximate height based on content
+    
+    // Calculate horizontal position - show on right side if there's room, otherwise left
+    let xPos;
+    if (rect.right + tooltipWidth + 10 < viewportWidth) {
+      // Show on right if it fits
+      xPos = rect.right + 10;
+    } else if (rect.left - tooltipWidth - 10 > 0) {
+      // Show on left if it fits
+      xPos = rect.left - tooltipWidth - 10;
+    } else {
+      // Center it if neither side has room
+      xPos = Math.max(10, Math.min(viewportWidth - tooltipWidth - 10, 
+        rect.left + (rect.width - tooltipWidth) / 2));
+    }
+    
+    // Calculate vertical position
+    let yPos;
+    if (rect.top + tooltipHeight < viewportHeight) {
+      // Show aligned with top if it fits below
+      yPos = rect.top;
+    } else if (rect.bottom - tooltipHeight > 0) {
+      // Show aligned with bottom if tooltip can fit above bottom of screen
+      yPos = rect.bottom - tooltipHeight;
+    } else {
+      // Position it at the top of the screen with small margin if nowhere else fits
+      yPos = 10;
+    }
     
     setTooltipPosition({
-      x: showOnRight ? rect.right + 10 : rect.left - 250 - 10,
-      y: rect.top,
+      x: xPos,
+      y: yPos,
     });
     
     setActiveTooltip(member);
