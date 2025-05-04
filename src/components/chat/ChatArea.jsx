@@ -58,6 +58,17 @@ export default function ChatArea() {
     if (currentChat?.id && currentChat.id !== currentChatIdRef.current) {
       setMessagesLoading(true);
       currentChatIdRef.current = currentChat.id;
+      
+      // Reset scrolling state variables when switching chats
+      prevMessagesLengthRef.current = 0;
+      isAtBottomRef.current = true;
+      userManuallyScrolledRef.current = false;
+      isScrollingToBottomRef.current = false;
+      recentlySentMessageRef.current = false;
+      hasUnreadMessagesRef.current = false;
+      setNewMessageReceived(false);
+      setReachedTop(false);
+      setIsAtTop(false);
     }
   }, [currentChat?.id]);
 
@@ -67,7 +78,14 @@ export default function ChatArea() {
       // Short delay to allow messages to render
       const timer = setTimeout(() => {
         setMessagesLoading(false);
-      }, 500);
+        
+        // After messages load, scroll to bottom
+        requestAnimationFrame(() => {
+          if (messageListRef.current) {
+            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+          }
+        });
+      }, 300); // Reduced timeout for faster loading
       
       return () => clearTimeout(timer);
     }
@@ -183,7 +201,9 @@ export default function ChatArea() {
     const atTop = scrollTop < 50;
     
     // Only update isAtTop if we're genuinely at the top AND not just sent a message
-    if (!recentlySentMessageRef.current) {
+    // IMPORTANT FIX: Only change isAtTop state when truly changing from not-top to top
+    // This prevents unnecessary re-renders that cause messages to disappear
+    if (!recentlySentMessageRef.current && atTop !== isAtTop) {
       setIsAtTop(atTop);
     }
     
@@ -223,6 +243,9 @@ export default function ChatArea() {
       markChatAsRead(currentChat.id);
       hasUnreadMessagesRef.current = false;
     } else {
+      // User is scrolled up
+      isAtBottomRef.current = false;
+      
       // Only show the scroll button with notification indicator if:
       // 1. The button isn't already showing AND
       // 2. We're not already scrolling to bottom AND
@@ -238,7 +261,6 @@ export default function ChatArea() {
           setNewMessageReceived(false);
         }
       }
-      isAtBottomRef.current = false;
     }
   };
 
@@ -698,9 +720,13 @@ export default function ChatArea() {
     const oldestVisibleMessageId = oldestVisibleMessageElement ? 
       oldestVisibleMessageElement.id.replace('msg-', '') : null;
     
+    // IMPORTANT FIX: Set a flag to keep the "at top" state while loading more
+    // This prevents messages from disappearing when scrolling down from top
+    const wasAtTop = isAtTop;
+    
     // Add a slight delay to show the loading animation
     setTimeout(() => {
-      // Load 20 more messages
+      // Load more messages
       loadMoreMessages(20).then((hasMore) => {
         // If no more messages to load, mark that we've reached the top
         if (!hasMore) {
@@ -710,6 +736,12 @@ export default function ChatArea() {
         // Short delay to ensure DOM updates
         setTimeout(() => {
           if (messageListRef.current) {
+            // IMPORTANT FIX: Only reset the isAtTop state after messages have loaded
+            // and we're no longer at the top of the scroll container
+            if (wasAtTop && messageListRef.current.scrollTop > 100) {
+              setIsAtTop(false);
+            }
+            
             // Reset the notification indicator since these are old messages
             setNewMessageReceived(false);
             
@@ -730,14 +762,14 @@ export default function ChatArea() {
             // Delay turning off loading state for smooth transition
             setTimeout(() => {
               setIsLoadingMore(false);
-            }, 400);
+            }, 300); // Reduced timeout for smoother experience
           }
-        }, 400);
+        }, 200); // Reduced timeout for smoother experience
       }).catch(error => {
         console.error("Error loading more messages:", error);
         setIsLoadingMore(false);
       });
-    }, 800);
+    }, 300); // Reduced timeout for smoother experience
   };
 
   // Function to render the scroll button with notification indicator only for actual new messages
@@ -780,9 +812,16 @@ export default function ChatArea() {
       }
     });
     
-    // Convert back to sorted array
-    return Array.from(messageMap.values())
-      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    // IMPORTANT FIX: Only re-sort messages when necessary, and maintain a stable order
+    // to prevent jumping and disappearing content when scrolling
+    const sortedMessages = Array.from(messageMap.values())
+      .sort((a, b) => {
+        const aTime = a.timestamp || 0;
+        const bTime = b.timestamp || 0;
+        return aTime - bTime;
+      });
+    
+    return sortedMessages;
   };
 
   if (!currentChat) {
@@ -830,6 +869,10 @@ export default function ChatArea() {
   if (messagesLoading && messages.length === 0) {
     return <ChatAreaSkeleton />;
   }
+
+  // Get the messages to display, ensuring stability during scrolling
+  const displayMessages = getUniqueCachedMessages();
+  const hasMessages = displayMessages.length > 0;
 
   return (
     <div className={styles.chatArea}>
@@ -881,101 +924,108 @@ export default function ChatArea() {
           </div>
         )}
         
-        {/* Render unique messages to avoid duplicates after loading more */}
-        {getUniqueCachedMessages().map((message, index, messageArray) => (
-          <React.Fragment key={message.id}>
-            {shouldShowDate(message, index, messageArray) && (
-              <div className={styles.dateSeparator}>
-                <span>{formatDate(message.timestamp)}</span>
-              </div>
-            )}
-            <div 
-              id={`msg-${message.id}`}  
-              className={`${styles.message} ${
-                message.type === 'poll' ? styles.pollMessage :
-                message.type === 'announcement' ? styles.announcementMessage : 
-                message.type === 'file' ? (message.sender === user?.uid ? `${styles.fileMessageContainer} ${styles.sent}` : `${styles.fileMessageContainer} ${styles.received}`) :
-                message.sender === user?.uid ? styles.sent : styles.received
-              }`}
-            >
-              {message.type === 'poll' && (
-                <div className={styles.pollMessage}>
-                  <div className={styles.pollHeader}>
-                    <div className={styles.pollCreator}>{message.senderName}</div>
-                    <div className={styles.timestamp}>{formatTime(message.timestamp)}</div>
-                  </div>
-                  <div className={styles.pollQuestion}>{message.question}</div>
-                  <div className={styles.pollOptions}>
-                    {Object.entries(message.options || {}).map(([optionId, option]) => {
-                      const votes = Object.keys(option.votes || {}).length;
-                      const totalVotes = Object.values(message.options || {})
-                        .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0);
-                      const percentage = totalVotes ? Math.round((votes / totalVotes) * 100) : 0;
-                      const hasVoted = option.votes && option.votes[user?.uid];
+        {/* IMPORTANT FIX: Only attempt to render messages if we have data to prevent flickering */}
+        {hasMessages ? (
+          displayMessages.map((message, index, messageArray) => (
+            <React.Fragment key={message.id}>
+              {shouldShowDate(message, index, messageArray) && (
+                <div className={styles.dateSeparator}>
+                  <span>{formatDate(message.timestamp)}</span>
+                </div>
+              )}
+              <div 
+                id={`msg-${message.id}`}  
+                className={`${styles.message} ${
+                  message.type === 'poll' ? styles.pollMessage :
+                  message.type === 'announcement' ? styles.announcementMessage : 
+                  message.type === 'file' ? (message.sender === user?.uid ? `${styles.fileMessageContainer} ${styles.sent}` : `${styles.fileMessageContainer} ${styles.received}`) :
+                  message.sender === user?.uid ? styles.sent : styles.received
+                }`}
+              >
+                {message.type === 'poll' && (
+                  <div className={styles.pollMessage}>
+                    <div className={styles.pollHeader}>
+                      <div className={styles.pollCreator}>{message.senderName}</div>
+                      <div className={styles.timestamp}>{formatTime(message.timestamp)}</div>
+                    </div>
+                    <div className={styles.pollQuestion}>{message.question}</div>
+                    <div className={styles.pollOptions}>
+                      {Object.entries(message.options || {}).map(([optionId, option]) => {
+                        const votes = Object.keys(option.votes || {}).length;
+                        const totalVotes = Object.values(message.options || {})
+                          .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0);
+                        const percentage = totalVotes ? Math.round((votes / totalVotes) * 100) : 0;
+                        const hasVoted = option.votes && option.votes[user?.uid];
 
-                      return (
-                        <button
-                          key={optionId}
-                          className={`${styles.pollOption} ${hasVoted ? styles.voted : ''}`}
-                          onClick={() => handleVote(message.id, optionId)}
-                          disabled={Object.values(message.options || {})
-                            .some(opt => opt.votes?.[user?.uid])}
-                        >
-                          <div className={styles.pollOptionContent}>
-                            <span>{option.text}</span>
-                            <span className={styles.voteCount}>{votes} votes</span>
-                          </div>
-                          <div className={styles.pollOptionBar}>
-                            <div 
-                              className={styles.pollOptionProgress} 
-                              style={{ width: `${percentage}%` }} 
-                            />
-                            <span className={styles.pollOptionPercentage}>{percentage}%</span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                        return (
+                          <button
+                            key={optionId}
+                            className={`${styles.pollOption} ${hasVoted ? styles.voted : ''}`}
+                            onClick={() => handleVote(message.id, optionId)}
+                            disabled={Object.values(message.options || {})
+                              .some(opt => opt.votes?.[user?.uid])}
+                          >
+                            <div className={styles.pollOptionContent}>
+                              <span>{option.text}</span>
+                              <span className={styles.voteCount}>{votes} votes</span>
+                            </div>
+                            <div className={styles.pollOptionBar}>
+                              <div 
+                                className={styles.pollOptionProgress} 
+                                style={{ width: `${percentage}%` }} 
+                              />
+                              <span className={styles.pollOptionPercentage}>{percentage}%</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className={styles.pollFooter}>
+                      Total votes: {Object.values(message.options || {})
+                        .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0)}
+                    </div>
                   </div>
-                  <div className={styles.pollFooter}>
-                    Total votes: {Object.values(message.options || {})
-                      .reduce((sum, opt) => sum + Object.keys(opt.votes || {}).length, 0)}
-                  </div>
-                </div>
-              )}
-              {message.type === 'announcement' && (
-                <>
-                  <div className={styles.sender}>{message.senderName}</div>
-                  <div className={styles.content}>{message.content}</div>
-                  <div className={styles.timestamp}>
-                    {formatTime(message.timestamp)}
-                  </div>
-                </>
-              )}
-              {!message.type && (
-                <div className={styles.bubble}>
-                  {message.sender !== user?.uid && (
-                    <div className={styles.senderName}>{message.senderName}</div>
-                  )}
-                  {message.content}
-                  <span className={styles.timestamp}>
-                    {formatTime(message.timestamp)}
-                  </span>
-                </div>
-              )}
-              {message.type === 'file' && (
-                <>
-                  {message.sender !== user?.uid && (
+                )}
+                {message.type === 'announcement' && (
+                  <>
                     <div className={styles.sender}>{message.senderName}</div>
-                  )}
-                  {renderFilePreview(message)}
-                  <div className={styles.timestamp}>
-                    {formatTime(message.timestamp)}
+                    <div className={styles.content}>{message.content}</div>
+                    <div className={styles.timestamp}>
+                      {formatTime(message.timestamp)}
+                    </div>
+                  </>
+                )}
+                {!message.type && (
+                  <div className={styles.bubble}>
+                    {message.sender !== user?.uid && (
+                      <div className={styles.senderName}>{message.senderName}</div>
+                    )}
+                    {message.content}
+                    <span className={styles.timestamp}>
+                      {formatTime(message.timestamp)}
+                    </span>
                   </div>
-                </>
-              )}
-            </div>
-          </React.Fragment>
-        ))}
+                )}
+                {message.type === 'file' && (
+                  <>
+                    {message.sender !== user?.uid && (
+                      <div className={styles.sender}>{message.senderName}</div>
+                    )}
+                    {renderFilePreview(message)}
+                    <div className={styles.timestamp}>
+                      {formatTime(message.timestamp)}
+                    </div>
+                  </>
+                )}
+              </div>
+            </React.Fragment>
+          ))
+        ) : messagesLoading ? (
+          // Show mini loading indicator if we're waiting for messages but have none to display
+          <div className={styles.centerLoading}>
+            <div className={styles.loadingSpinner}></div>
+          </div>
+        ) : null}
         
         {/* Display upload progress for files currently being uploaded */}
         {Object.entries(fileUploads).map(([id, data]) => (

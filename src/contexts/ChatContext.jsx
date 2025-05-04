@@ -59,6 +59,7 @@ export function ChatProvider({ children }) {
   const [typingUsers, setTypingUsers] = useState({});
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [chatsLoading, setChatsLoading] = useState(true);
   
   // Use refs to track previous values and listeners
   const chatListenersRef = useRef([]);
@@ -104,17 +105,24 @@ export function ChatProvider({ children }) {
       setHasMoreMessages(true);
     }
     
+    // IMPORTANT FIX: Get the current messages first to avoid flickering
+    // and maintain message continuity when scrolling
+    const currentMessages = [...messages];
+    
     // Get messages to show - using the simple slice approach
     const messagesToShow = allMessages.slice(0, newLimit);
     
     // Log diagnostic info
     console.log(`Messages loaded: ${messagesToShow.length}, Total: ${totalMessages}, Has more: ${hasMore}`);
     
-    // Update messages state directly - simpler and more reliable
-    setMessages(messagesToShow);
+    // IMPORTANT FIX: Only update if we have more messages than before
+    // This prevents message flickering when scrolling
+    if (messagesToShow.length >= currentMessages.length) {
+      setMessages(messagesToShow);
+    }
     
     return Promise.resolve(hasMore);
-  }, []);
+  }, [messages]);
   
   // Memoize functions to prevent them from changing on each render
   const clearInviteLink = useCallback(() => {
@@ -202,6 +210,7 @@ export function ChatProvider({ children }) {
     
     // Set loading to true when user changes
     setLoading(true);
+    setChatsLoading(true);
     
     // Clean up previous listeners
     const cleanupListeners = () => {
@@ -220,6 +229,7 @@ export function ChatProvider({ children }) {
       if (Object.keys(chatIds).length === 0) {
         // No chat IDs, set loading to false immediately
         setLoading(false);
+        setChatsLoading(false);
       }
       
       // Track how many chats have been processed
@@ -237,6 +247,7 @@ export function ChatProvider({ children }) {
               processedChats++;
               if (processedChats >= totalChats) {
                 setLoading(false);
+                setChatsLoading(false);
               }
               return;
             }
@@ -278,6 +289,7 @@ export function ChatProvider({ children }) {
               processedChats++;
               if (processedChats >= totalChats) {
                 setLoading(false);
+                setChatsLoading(false);
               }
               return;
             }
@@ -297,12 +309,14 @@ export function ChatProvider({ children }) {
             processedChats++;
             if (processedChats >= totalChats) {
               setLoading(false);
+              setChatsLoading(false);
             }
           } catch (error) {
             console.error('Error handling chat update:', error);
             processedChats++;
             if (processedChats >= totalChats) {
               setLoading(false);
+              setChatsLoading(false);
             }
           }
         });
@@ -364,8 +378,19 @@ export function ChatProvider({ children }) {
       }
     });
     
-    // Clear existing messages map and reset limit
+    // Reset message state when changing chats - IMPORTANT FIX
     if (!isReconnecting) {
+      // IMPORTANT FIX: Only clear messages immediately if we don't have any
+      // current messages or if this is a new chat. Otherwise, keep the old messages
+      // until new messages are loaded to prevent flickering
+      const shouldClearImmediately = messages.length === 0 || 
+        messages[0]?.chatId !== currentChat.id;
+      
+      if (shouldClearImmediately) {
+        setMessages([]);
+      }
+      
+      // Clear all message-related state without affecting the chat list
       messagesMapRef.current.clear();
       messagesLimitRef.current = 20;
       setHasMoreMessages(true);
@@ -393,6 +418,7 @@ export function ChatProvider({ children }) {
       const messageId = snapshot.key;
       const newMessage = {
         id: messageId,
+        chatId: currentChat.id, // IMPORTANT FIX: Add chatId to messages for better tracking
         ...messageData
       };
       
@@ -419,8 +445,13 @@ export function ChatProvider({ children }) {
           
           // Get the most recent messages for initial display
           const recentMessages = allMessages.slice(-MESSAGES_PER_PAGE);
-          setMessages(recentMessages);
-        }, 500);
+          
+          // IMPORTANT FIX: Only update if we have messages to show or if we previously
+          // cleared the messages. This prevents flickering.
+          if (recentMessages.length > 0 || messages.length === 0) {
+            setMessages(recentMessages);
+          }
+        }, 300); // Reduced timeout for faster loading
       } else {
         // After initial load, add new messages as they come in
         setMessages(prevMessages => {
@@ -1052,7 +1083,8 @@ export function ChatProvider({ children }) {
     setTypingStatus,
     loadMoreMessages,
     hasMoreMessages,
-    loading
+    loading,
+    chatsLoading
   };
 
   return (

@@ -9,17 +9,28 @@ import ChatListSkeleton from './ChatListSkeleton';
 const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const { chats, currentChat, clearInviteLink, handleChatSelect, loading } = useChat();
-  useAuth();
+  const { chats, currentChat, clearInviteLink, handleChatSelect, chatsLoading } = useChat();
+  useAuth(); // We need auth context but don't directly use the user variable
   const navigate = useNavigate();
   const [overflowingChats, setOverflowingChats] = useState({});
   const chatItemRefs = useRef({});
+  const initialLoadCompletedRef = useRef(false);
+  
+  // Track when initial load is completed to prevent showing skeleton on chat switching
+  useEffect(() => {
+    if (chats.length > 0 && chatsLoading === false) {
+      initialLoadCompletedRef.current = true;
+    }
+  }, [chats.length, chatsLoading]);
 
   const onChatSelect = async (chat) => {
     await handleChatSelect(chat);
     clearInviteLink();
     navigate(`/chat/${chat.id}`);
   };
+
+  // Only show skeleton during initial load, not when switching chats
+  const shouldShowSkeleton = chatsLoading && !initialLoadCompletedRef.current;
 
   useEffect(() => {
     const checkOverflow = () => {
@@ -87,8 +98,8 @@ const Sidebar = () => {
         </svg>
       </div>
 
-      <div className={`${styles.chatList} ${loading ? styles.loading : ''}`}>
-        {loading ? (
+      <div className={`${styles.chatList} ${shouldShowSkeleton ? styles.loading : ''}`}>
+        {shouldShowSkeleton ? (
           <ChatListSkeleton count={6} />
         ) : (
           filteredChats.map(chat => (
@@ -156,31 +167,31 @@ const Sidebar = () => {
                       </>
                     ) : (
                       <>
-                    {chat.unreadMessages > 0 && (
-                      <span 
-                        className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
-                        data-tooltip="New messages"
-                      >
-                        {chat.unreadMessages}
-                      </span>
-                    )}
-                    
-                    {chat.unreadAnnouncements > 0 && (
-                      <span 
-                        className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
-                        data-tooltip="New announcements"
-                      >
-                        {chat.unreadAnnouncements}
-                      </span>
-                    )}
-                    
-                    {chat.unreadPolls > 0 && (
-                      <span 
-                        className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
-                        data-tooltip="New polls"
-                      >
-                        {chat.unreadPolls}
-                      </span>
+                        {chat.unreadMessages > 0 && (
+                          <span 
+                            className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
+                            data-tooltip="New messages"
+                          >
+                            {chat.unreadMessages}
+                          </span>
+                        )}
+                        
+                        {chat.unreadAnnouncements > 0 && (
+                          <span 
+                            className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
+                            data-tooltip="New announcements"
+                          >
+                            {chat.unreadAnnouncements}
+                          </span>
+                        )}
+                        
+                        {chat.unreadPolls > 0 && (
+                          <span 
+                            className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
+                            data-tooltip="New polls"
+                          >
+                            {chat.unreadPolls}
+                          </span>
                         )}
                       </>
                     )}
