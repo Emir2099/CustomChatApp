@@ -14,11 +14,12 @@ export default function ChatArea() {
     handleVote, 
     markChatAsRead,
     FILE_SIZE_LIMIT,
-    ALLOWED_FILE_TYPES
+    ALLOWED_FILE_TYPES,
+    typingUsers,
+    setTypingStatus
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
-  const [uploadProgress, setUploadProgress] = useState({});
   const [fileUploadError, setFileUploadError] = useState('');
   const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
@@ -32,6 +33,7 @@ export default function ChatArea() {
   const isScrollingToBottomRef = useRef(false);
   const recentlySentMessageRef = useRef(false);
   const hasUnreadMessagesRef = useRef(false);
+  const typingTimeoutRef = useRef(null);
 
   // Force check if scrolling is actually needed
   const checkIfScrollNeeded = () => {
@@ -89,6 +91,18 @@ export default function ChatArea() {
       }, 1000);
     }
   }, [messages]);
+
+  // Also auto-scroll to the bottom when typing indicators appear or disappear
+  useEffect(() => {
+    // Only auto-scroll if the user is already at the bottom
+    if (isAtBottomRef.current && messageListRef.current && !userManuallyScrolledRef.current) {
+      requestAnimationFrame(() => {
+        if (messageListRef.current) {
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        }
+      });
+    }
+  }, [typingUsers]);
 
   // Reset scroll state when chat changes
   useEffect(() => {
@@ -195,12 +209,74 @@ export default function ChatArea() {
     }, 700); // Extended timeout to ensure scroll completes
   };
 
+  // Function to render typing indicators
+  const renderTypingIndicators = () => {
+    if (!typingUsers || Object.keys(typingUsers).length === 0) return null;
+    
+    const typingUsersArray = Object.values(typingUsers);
+    
+    // Limit to showing max 3 typing indicators
+    const displayCount = Math.min(typingUsersArray.length, 3);
+    const displayUsers = typingUsersArray.slice(0, displayCount);
+    
+    let typingText = '';
+    if (displayCount === 1) {
+      typingText = `${displayUsers[0].displayName} is typing...`;
+    } else if (displayCount === 2) {
+      typingText = `${displayUsers[0].displayName} and ${displayUsers[1].displayName} are typing...`;
+    } else if (displayCount === 3) {
+      typingText = `${displayUsers[0].displayName}, ${displayUsers[1].displayName}, and ${displayUsers[2].displayName} are typing...`;
+    } else {
+      typingText = `${displayUsers[0].displayName}, ${displayUsers[1].displayName}, and ${typingUsersArray.length - 2} others are typing...`;
+    }
+    
+    return (
+      <div className={styles.typingIndicator}>
+        <div className={styles.typingAnimation}>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div className={styles.typingText}>{typingText}</div>
+      </div>
+    );
+  };
+
+  // Enhanced message change handler with more responsive typing status
+  const handleMessageChange = (e) => {
+    const value = e.target.value;
+    setNewMessage(value);
+    
+    // Update typing status with debounce
+    if (value.length > 0) {
+      // Set typing status to true
+      setTypingStatus(true);
+      
+      // Clear previous timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set new timeout to stop typing status after inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        setTypingStatus(false);
+      }, 3000);
+    } else {
+      // If message is empty, immediately clear typing status
+      setTypingStatus(false);
+    }
+  };
+  
+  // Clear typing status when sending message
   const handleSend = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentChat?.id) return;
     
     const message = newMessage.trim();
     setNewMessage('');
+    
+    // Clear typing status
+    setTypingStatus(false);
     
     // Mark as recently sent to prevent button from showing
     recentlySentMessageRef.current = true;
@@ -279,8 +355,8 @@ export default function ChatArea() {
       setFileUploadError('');
       
       // Send the file and track progress
-      await sendFileMessage(file, (progress) => {
-        setUploadProgress(prev => ({...prev, [file.name]: progress}));
+      await sendFileMessage(file, () => {
+        // Progress is tracked in the ChatContext
       });
       
       // Mark as recently sent to prevent button from showing
@@ -300,11 +376,7 @@ export default function ChatArea() {
       
       // Clear progress after a delay
       setTimeout(() => {
-        setUploadProgress(prev => {
-          const newState = {...prev};
-          delete newState[file.name];
-          return newState;
-        });
+        // Progress is managed by ChatContext
       }, 2000);
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -444,6 +516,18 @@ export default function ChatArea() {
     // and the current message has a valid timestamp
     return currentDate !== prevDate && message.timestamp;
   };
+
+  // Clean up typing timeout on unmount or when chat changes
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Ensure typing status is cleared when component unmounts or chat changes
+      setTypingStatus(false);
+    };
+  }, [setTypingStatus, currentChat?.id]);
 
   if (!currentChat) {
     return (
@@ -634,6 +718,11 @@ export default function ChatArea() {
         </button>
       )}
 
+      {/* Typing indicators placed above the message form */}
+      <div className={styles.typingIndicatorContainer}>
+        {renderTypingIndicators()}
+      </div>
+
       <form onSubmit={handleSend} className={styles.messageForm}>
         {fileUploadError && (
           <div className={styles.fileError}>
@@ -644,7 +733,7 @@ export default function ChatArea() {
           <input
             type="text"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={handleMessageChange}
             placeholder="Type a message..."
             className={styles.messageInput}
           />

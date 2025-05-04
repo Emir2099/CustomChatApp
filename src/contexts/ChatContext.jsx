@@ -56,6 +56,7 @@ export function ChatProvider({ children }) {
   const [polls, setPolls] = useState([]);
   const [inviteLink, setInviteLink] = useState('');
   const [fileUploads, setFileUploads] = useState({});
+  const [typingUsers, setTypingUsers] = useState({});
   
   // Use refs to track previous values and listeners
   const chatListenersRef = useRef([]);
@@ -64,6 +65,7 @@ export function ChatProvider({ children }) {
   const currentChatRef = useRef(null);
   const membersCache = useRef(new Map());
   const prevMembersRef = useRef([]);
+  const typingTimeoutRef = useRef(null);
   
   // Memoize functions to prevent them from changing on each render
   const clearInviteLink = useCallback(() => {
@@ -725,6 +727,79 @@ export function ChatProvider({ children }) {
     return 'file';
   };
 
+  // Add function to set typing status
+  const setTypingStatus = useCallback((isTyping) => {
+    if (!user || !currentChat?.id) return;
+    
+    try {
+      // Clear any existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Update typing status in Firebase
+      const typingRef = ref(db, `chats/${currentChat.id}/typing/${user.uid}`);
+      
+      if (isTyping) {
+        // Set typing status with user info
+        set(typingRef, {
+          uid: user.uid,
+          displayName: user.displayName || user.email,
+          timestamp: Date.now()
+        });
+        
+        // Auto clear typing status after 5 seconds of inactivity
+        typingTimeoutRef.current = setTimeout(() => {
+          set(typingRef, null);
+        }, 5000);
+      } else {
+        // Clear typing status immediately
+        set(typingRef, null);
+      }
+    } catch (error) {
+      console.error('Error updating typing status:', error);
+    }
+  }, [user, currentChat]);
+
+  // Listen for typing indicators
+  useEffect(() => {
+    if (!currentChat?.id) return;
+    
+    const typingRef = ref(db, `chats/${currentChat.id}/typing`);
+    
+    const typingListener = onValue(typingRef, (snapshot) => {
+      const typingData = snapshot.val() || {};
+      
+      // Filter out stale typing indicators (older than 6 seconds)
+      const now = Date.now();
+      const activeTypingUsers = Object.entries(typingData)
+        .filter(([uid, data]) => {
+          // Don't show current user as typing
+          if (uid === user?.uid) return false;
+          
+          // Filter out stale typing data
+          return data.timestamp && (now - data.timestamp < 6000);
+        })
+        .reduce((acc, [uid, data]) => {
+          acc[uid] = data;
+          return acc;
+        }, {});
+      
+      setTypingUsers(activeTypingUsers);
+    });
+    
+    return () => {
+      typingListener();
+      setTypingUsers({});
+      
+      // When changing chats, clear the typing status for the user in the previous chat
+      if (user?.uid) {
+        const userTypingRef = ref(db, `chats/${currentChat.id}/typing/${user.uid}`);
+        set(userTypingRef, null).catch(err => console.error('Error clearing typing status:', err));
+      }
+    };
+  }, [currentChat?.id, user?.uid]);
+
   // Provide context with all memoized values and functions
   const contextValue = {
     currentChat,
@@ -752,7 +827,9 @@ export function ChatProvider({ children }) {
     markChatAsRead,
     handleChatSelect,
     FILE_SIZE_LIMIT,
-    ALLOWED_FILE_TYPES
+    ALLOWED_FILE_TYPES,
+    typingUsers,
+    setTypingStatus
   };
 
   return (

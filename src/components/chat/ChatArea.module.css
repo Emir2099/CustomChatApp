@@ -1015,3 +1015,119 @@
 .bounce {
   animation: bounce 0.5s ease;
 }
+
+/* Typing indicator container */
+.typingIndicatorContainer {
+  padding: 0 16px;
+  margin-bottom: 8px;
+  min-height: 36px;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+/* Typing indicator styles */
+.typingIndicator {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  margin: 0;
+  max-width: 300px;
+  background-color: #f3f4f6;
+  border-radius: 18px;
+  animation: fadeInUp 0.3s ease-out, pulseIndicator 2s infinite;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  transform-origin: left center;
+}
+
+.typingIndicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #6366f1, transparent);
+  animation: shimmer 2s infinite;
+}
+
+.typingAnimation {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.typingAnimation span {
+  height: 8px;
+  width: 8px;
+  margin: 0 2px;
+  background-color: #6366f1;
+  border-radius: 50%;
+  display: inline-block;
+  animation: typingBounce 1.3s infinite ease-in-out;
+  opacity: 0.8;
+}
+
+.typingAnimation span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typingAnimation span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typingAnimation span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.typingText {
+  font-size: 13px;
+  color: #4b5563;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.8;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseIndicator {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
