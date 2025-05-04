@@ -5,27 +5,75 @@ import styles from './SettingsModal.module.css';
 import PropTypes from 'prop-types';
 
 export default function SettingsModal({ onClose, currentChat }) {
-  const { updateGroupInfo } = useChat();
+  const { updateGroupInfo, setCurrentChat } = useChat();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showReloadPrompt, setShowReloadPrompt] = useState(false);
+  const [localEmbedImages, setLocalEmbedImages] = useState(currentChat.embedImages !== false);
   
   const isAdmin = currentChat?.admins?.[auth.currentUser?.uid];
 
   const handleToggleEmbedImages = async (enabled) => {
     if (!currentChat?.id || !isAdmin) return;
     
+    // Update local state immediately for responsive UI
+    setLocalEmbedImages(enabled);
     setIsUpdating(true);
+    
     try {
       await updateGroupInfo(currentChat.id, {
         embedImages: enabled,
         lastUpdated: Date.now()
       });
       
-      // No need to manually update currentChat here
-      // It will be updated via the listener in ChatContext
+      // Update the current chat object directly for immediate effect
+      setCurrentChat(prevChat => ({
+        ...prevChat,
+        embedImages: enabled
+      }));
+      
+      // Show reload prompt after successful update
+      setShowReloadPrompt(true);
     } catch (error) {
+      // Revert local state on error
+      setLocalEmbedImages(!enabled);
       console.error('Error updating image embedding setting:', error);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleReloadPage = () => {
+    try {
+      // Show a feedback message before reloading
+      const reloadPromptElement = document.querySelector(`.${styles.reloadPrompt}`);
+      if (reloadPromptElement) {
+        const messageElement = reloadPromptElement.querySelector(`.${styles.reloadMessage} p`);
+        if (messageElement) {
+          messageElement.textContent = 'Reloading page...';
+        }
+        
+        const button = reloadPromptElement.querySelector(`.${styles.reloadButton}`);
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'Reloading...';
+        }
+      }
+      
+      // Log for debugging
+      console.log('Reloading page to apply settings...');
+      
+      // Short delay to show the "Reloading..." message
+      setTimeout(() => {
+        // Force a hard refresh to reload all resources
+        // This is more reliable than window.location.reload()
+        window.location.href = window.location.href.split('?')[0] 
+          + '?t=' + new Date().getTime();
+      }, 300);
+    } catch (error) {
+      console.error('Error reloading page:', error);
+      // Fallback to simple reload
+      alert('Error reloading. Please refresh the page manually.');
+      window.location.reload();
     }
   };
 
@@ -38,6 +86,25 @@ export default function SettingsModal({ onClose, currentChat }) {
         </div>
         
         <div className={styles.content}>
+          {showReloadPrompt && (
+            <div className={styles.reloadPrompt}>
+              <div className={styles.reloadIcon}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <div className={styles.reloadMessage}>
+                <p>Setting updated! Reload to see changes.</p>
+                <button 
+                  className={styles.reloadButton}
+                  onClick={handleReloadPage}
+                >
+                  Reload Now
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className={styles.settingSection}>
             <h3>Display Settings</h3>
             
@@ -50,21 +117,17 @@ export default function SettingsModal({ onClose, currentChat }) {
               </div>
               
               <div className={styles.toggleWrapper}>
-                <label className={styles.toggle}>
+                <label className={`${styles.toggle} ${isUpdating ? styles.updating : ''}`}>
                   <input 
                     type="checkbox"
-                    checked={currentChat.embedImages !== false}
+                    checked={localEmbedImages}
                     onChange={(e) => handleToggleEmbedImages(e.target.checked)}
                     disabled={!isAdmin || isUpdating}
                   />
-                  <span className={styles.slider}></span>
+                  <span className={styles.slider}>
+                    {isUpdating && <span className={styles.pulsingDot}></span>}
+                  </span>
                 </label>
-                
-                {isUpdating && (
-                  <div className={styles.updateIndicator}>
-                    <div className={styles.updateSpinner}></div>
-                  </div>
-                )}
               </div>
             </div>
           </div>

@@ -17,13 +17,14 @@ export default function ChatArea() {
     ALLOWED_FILE_TYPES,
     typingUsers,
     setTypingStatus,
-    loadMoreMessages
+    loadMoreMessages,
+    hasMoreMessages
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
   const [fileUploadError, setFileUploadError] = useState('');
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [reachedTop, setReachedTop] = useState(false);
   const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -37,6 +38,7 @@ export default function ChatArea() {
   const recentlySentMessageRef = useRef(false);
   const hasUnreadMessagesRef = useRef(false);
   const typingTimeoutRef = useRef(null);
+  const [isAtTop, setIsAtTop] = useState(false);
 
   // Force check if scrolling is actually needed
   const checkIfScrollNeeded = () => {
@@ -74,14 +76,19 @@ export default function ChatArea() {
     if (messageListRef.current && ((isFirstLoad && messages.length > 0) || 
         (newMessagesArrived && isAtBottomRef.current && !userManuallyScrolledRef.current))) {
       // Auto-scroll in safe cases
-      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-    } else if (newMessagesArrived && !isAtBottomRef.current) {
-      // If new messages arrived but user is scrolled up, show notification
+      setTimeout(() => {
+        if (messageListRef.current) {
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        }
+      }, 100); // Short delay to ensure rendering is complete
+    } else if (newMessagesArrived && !isAtBottomRef.current && !isLoadingMore) {
+      // Only show new message notification if:
+      // 1. New messages arrived AND
+      // 2. User is scrolled up AND 
+      // 3. We're not currently loading older messages
       if (checkIfScrollNeeded() && !recentlySentMessageRef.current) {
         setShowScrollButton(true);
         setNewMessageReceived(true);
-        // Don't reset newMessageReceived here - it should remain true
-        // until the user scrolls to the bottom
       }
     }
 
@@ -93,7 +100,7 @@ export default function ChatArea() {
         recentlySentMessageRef.current = false;
       }, 1000);
     }
-  }, [messages]);
+  }, [messages, isLoadingMore]);
 
   // Also auto-scroll to the bottom when typing indicators appear or disappear
   useEffect(() => {
@@ -120,6 +127,8 @@ export default function ChatArea() {
       isScrollingToBottomRef.current = false;
       recentlySentMessageRef.current = false;
       hasUnreadMessagesRef.current = false;
+      setNewMessageReceived(false);
+      setReachedTop(false);
       
       // Reset and scroll to bottom when changing chats
       setTimeout(() => {
@@ -130,12 +139,29 @@ export default function ChatArea() {
     }
   }, [currentChat?.id]);
 
-  // Handle scroll events to show/hide scroll button
+  // Update reachedTop state when hasMoreMessages changes
+  useEffect(() => {
+    if (!hasMoreMessages) {
+      setReachedTop(true);
+    } else {
+      setReachedTop(false);
+    }
+  }, [hasMoreMessages]);
+
+  // Handle scroll events to show/hide scroll button and check if at top
   const handleScroll = () => {
     // Don't process scroll events during programmatic scrolling
     if (!messageListRef.current || isScrollingToBottomRef.current || recentlySentMessageRef.current || !currentChat?.id) return;
     
-      const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
+    const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
+    
+    // Check if scrolled to top (within 50px of the top)
+    const atTop = scrollTop < 50;
+    
+    // Only update isAtTop if we're genuinely at the top AND not just sent a message
+    if (!recentlySentMessageRef.current) {
+      setIsAtTop(atTop);
+    }
     
     // Only show button if there's actually enough content to scroll
     if (!checkIfScrollNeeded()) {
@@ -173,8 +199,20 @@ export default function ChatArea() {
       markChatAsRead(currentChat.id);
       hasUnreadMessagesRef.current = false;
     } else {
+      // Only show the scroll button with notification indicator if:
+      // 1. The button isn't already showing AND
+      // 2. We're not already scrolling to bottom AND
+      // 3. Either we have new messages OR we're significantly away from the bottom
       if (!showScrollButton && !buttonFading && !isScrollingToBottomRef.current) {
         setShowScrollButton(true);
+        // Only show notification dot if we actually have new unread messages
+        // Don't show it just because we're scrolled up
+        if (newMessageReceived) {
+          // Keep the notification dot
+        } else {
+          // No new messages, just show the scroll button without notification
+          setNewMessageReceived(false);
+        }
       }
       isAtBottomRef.current = false;
     }
@@ -192,7 +230,7 @@ export default function ChatArea() {
     isScrollingToBottomRef.current = true;
     
     // Immediately hide button and prevent any reappearance during scrolling
-      setShowScrollButton(false);
+    setShowScrollButton(false);
     setButtonFading(false);
     
     // Reset the new message indicator when scrolling to bottom
@@ -276,13 +314,16 @@ export default function ChatArea() {
     if (!newMessage.trim() || !currentChat?.id) return;
     
     const message = newMessage.trim();
-      setNewMessage('');
+    setNewMessage('');
     
     // Clear typing status
     setTypingStatus(false);
     
     // Mark as recently sent to prevent button from showing
     recentlySentMessageRef.current = true;
+    
+    // Explicitly set isAtTop to false to prevent "load more" button from showing
+    setIsAtTop(false);
     
     // Send message first
     sendMessage(message);
@@ -587,14 +628,14 @@ export default function ChatArea() {
     }
   };
 
-  const shouldShowDate = (message, index, messages) => {
+  const shouldShowDate = (message, index, messageArray) => {
     if (!message.timestamp) return false;
     
     // For first message with timestamp
     if (index === 0) return true;
     
     const currentDate = new Date(message.timestamp).toDateString();
-    const prevDate = new Date(messages[index - 1].timestamp || 0).toDateString();
+    const prevDate = new Date(messageArray[index - 1].timestamp || 0).toDateString();
     
     // Only show date separator if it's different from previous message's date
     // and the current message has a valid timestamp
@@ -613,30 +654,112 @@ export default function ChatArea() {
     };
   }, [setTypingStatus, currentChat?.id]);
 
-  // Handle loading more messages
+  // Handle loading more messages with fixed behavior
   const handleLoadMore = () => {
-    if (isLoadingMore || !loadMoreMessages) return;
+    if (isLoadingMore || !loadMoreMessages || !isAtTop) return;
     
     setIsLoadingMore(true);
-    const scrollPosition = messageListRef.current.scrollHeight;
     
-    // Load 20 more messages
-    loadMoreMessages(20).then((hasMore) => {
-      setHasMoreMessages(hasMore);
-      setTimeout(() => {
-        if (messageListRef.current) {
-          const newScrollHeight = messageListRef.current.scrollHeight;
-          messageListRef.current.scrollTop = newScrollHeight - scrollPosition;
-        }
-        setIsLoadingMore(false);
-      }, 300);
+    // Store the current first visible message and its position
+    // We'll use this as a reference point after loading more messages
+    const oldestVisibleMessageElement = Array.from(
+      document.querySelectorAll(`[id^="msg-"]`)
+    ).find(el => {
+      const rect = el.getBoundingClientRect();
+      // Check if the element is visible in the viewport
+      return rect.top >= 0 && rect.bottom <= window.innerHeight;
     });
+    
+    // Get the ID of this message if we found one
+    const oldestVisibleMessageId = oldestVisibleMessageElement ? 
+      oldestVisibleMessageElement.id.replace('msg-', '') : null;
+    
+    // Add a slight delay to show the loading animation
+    setTimeout(() => {
+      // Load 20 more messages
+      loadMoreMessages(20).then((hasMore) => {
+        // If no more messages to load, mark that we've reached the top
+        if (!hasMore) {
+          setReachedTop(true);
+        }
+        
+        // Short delay to ensure DOM updates
+        setTimeout(() => {
+          if (messageListRef.current) {
+            // Reset the notification indicator since these are old messages
+            setNewMessageReceived(false);
+            
+            // If we identified a visible message before loading, scroll to keep it visible
+            if (oldestVisibleMessageId) {
+              const messageElement = document.getElementById(`msg-${oldestVisibleMessageId}`);
+              if (messageElement) {
+                // Scroll to position the element roughly where it was before
+                messageElement.scrollIntoView({ block: 'center' });
+              }
+            } else {
+              // If we couldn't identify a message, just scroll to a reasonable position
+              // About 1/3 of the way from the top
+              const scrollHeight = messageListRef.current.scrollHeight;
+              messageListRef.current.scrollTop = scrollHeight / 3;
+            }
+            
+            // Delay turning off loading state for smooth transition
+            setTimeout(() => {
+              setIsLoadingMore(false);
+            }, 400);
+          }
+        }, 400);
+      }).catch(error => {
+        console.error("Error loading more messages:", error);
+        setIsLoadingMore(false);
+      });
+    }, 800);
   };
 
-  // Reset hasMoreMessages when changing chats
-  useEffect(() => {
-    setHasMoreMessages(true);
-  }, [currentChat?.id]);
+  // Function to render the scroll button with notification indicator only for actual new messages
+  const renderScrollButton = () => {
+    if (!showScrollButton) return null;
+    
+    return (
+      <button 
+        type="button"
+        className={`${styles.scrollButton} ${newMessageReceived ? styles.bounce : ''} ${buttonFading ? styles.fadeOut : ''}`} 
+        onClick={() => {
+          // Directly mark messages as read when button is clicked
+          if (currentChat?.id) {
+            markChatAsRead(currentChat.id);
+          }
+          scrollToBottom(true);
+        }}
+        aria-label="Scroll to bottom"
+      >
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" strokeWidth="0">
+          <path d="M12 17.5l-6-6 1.4-1.4 4.6 4.6 4.6-4.6L18 11.5z" />
+        </svg>
+        {/* Only show notification indicator for actual new messages */}
+        {newMessageReceived && <span className={styles.newMessageIndicator}></span>}
+      </button>
+    );
+  };
+
+  // Key helper function to maintain loaded messages properly
+  const getUniqueCachedMessages = () => {
+    if (!messages || messages.length === 0) return [];
+    
+    // Use a Map to ensure each message is only included once based on ID
+    const messageMap = new Map();
+    
+    // Add all current messages to the map
+    messages.forEach(message => {
+      if (message.id) {
+        messageMap.set(message.id, message);
+      }
+    });
+    
+    // Convert back to sorted array
+    return Array.from(messageMap.values())
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  };
 
   if (!currentChat) {
     return (
@@ -690,36 +813,50 @@ export default function ChatArea() {
         ref={messageListRef} 
         onScroll={handleScroll}
       >
-        {/* Load more messages button */}
-        {messages.length >= 20 && hasMoreMessages && (
+        {/* Load more messages button or loading spinner - 
+          * Only show when:
+          * 1. User is at the top of the list
+          * 2. We haven't reached the top of all messages
+          * 3. hasMoreMessages is true or we're currently loading
+          * 4. We're not currently sending a message
+          * 5. We're not scrolling to bottom
+          */}
+        {isAtTop && 
+          !reachedTop && 
+          (hasMoreMessages || isLoadingMore) && 
+          !recentlySentMessageRef.current && 
+          !isScrollingToBottomRef.current && (
           <div className={styles.loadMoreContainer}>
-            <button 
-              className={styles.loadMoreButton}
-              onClick={handleLoadMore}
-              disabled={isLoadingMore}
-            >
-              {isLoadingMore ? (
+            {isLoadingMore ? (
+              <div className={styles.loadingIndicator}>
                 <div className={styles.loadingSpinner}></div>
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M7 13l5-5 5 5"></path>
-                  </svg>
-                  <span>Load more messages</span>
-                </>
-              )}
-            </button>
+                <span>Loading older messages...</span>
+              </div>
+            ) : (
+              <button 
+                className={styles.loadMoreButton}
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M7 13l5-5 5 5"></path>
+                </svg>
+                <span>Load more messages</span>
+              </button>
+            )}
           </div>
         )}
         
-        {messages.map((message, index) => (
+        {/* Render unique messages to avoid duplicates after loading more */}
+        {getUniqueCachedMessages().map((message, index, messageArray) => (
           <React.Fragment key={message.id}>
-            {shouldShowDate(message, index, messages) && (
+            {shouldShowDate(message, index, messageArray) && (
               <div className={styles.dateSeparator}>
                 <span>{formatDate(message.timestamp)}</span>
               </div>
             )}
             <div 
+              id={`msg-${message.id}`}  
               className={`${styles.message} ${
                 message.type === 'poll' ? styles.pollMessage :
                 message.type === 'announcement' ? styles.announcementMessage : 
@@ -829,25 +966,7 @@ export default function ChatArea() {
       </div>
 
       {/* New messages notification button */}
-      {showScrollButton && (
-        <button 
-          type="button"
-          className={`${styles.scrollButton} ${newMessageReceived ? styles.bounce : ''} ${buttonFading ? styles.fadeOut : ''}`} 
-          onClick={() => {
-            // Directly mark messages as read when button is clicked
-            if (currentChat?.id) {
-              markChatAsRead(currentChat.id);
-            }
-            scrollToBottom(true);
-          }}
-          aria-label="Scroll to bottom"
-        >
-          <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" strokeWidth="0">
-            <path d="M12 17.5l-6-6 1.4-1.4 4.6 4.6 4.6-4.6L18 11.5z" />
-          </svg>
-          {newMessageReceived && <span className={styles.newMessageIndicator}></span>}
-        </button>
-      )}
+      {renderScrollButton()}
 
       {/* Typing indicators placed above the message form */}
       <div className={styles.typingIndicatorContainer}>
@@ -864,36 +983,36 @@ export default function ChatArea() {
         <input
           type="text"
           value={newMessage}
-            onChange={handleMessageChange}
-            placeholder="Type a message..."
-            className={styles.messageInput}
-          />
-          <button 
-            type="button" 
-            className={styles.attachButton}
-            onClick={handleFileSelect}
-            title="Attach file"
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
-            </svg>
-          </button>
-          <button type="submit" className={styles.sendButton} title="Send message">
+          onChange={handleMessageChange}
+          placeholder="Type a message..."
+          className={styles.messageInput}
+        />
+        <button 
+          type="button" 
+          className={styles.attachButton}
+          onClick={handleFileSelect}
+          title="Attach file"
+        >
           <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
           </svg>
         </button>
-        </div>
+        <button type="submit" className={styles.sendButton} title="Send message">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+      </div>
 
-        {/* Hidden file input */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-          accept={ALLOWED_FILE_TYPES.join(',')}
-        />
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        style={{ display: 'none' }}
+        accept={ALLOWED_FILE_TYPES.join(',')}
+      />
       </form>
     </div>
   );
-} 
+}

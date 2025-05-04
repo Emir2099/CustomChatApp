@@ -57,6 +57,7 @@ export function ChatProvider({ children }) {
   const [inviteLink, setInviteLink] = useState('');
   const [fileUploads, setFileUploads] = useState({});
   const [typingUsers, setTypingUsers] = useState({});
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   
   // Use refs to track previous values and listeners
   const chatListenersRef = useRef([]);
@@ -66,6 +67,53 @@ export function ChatProvider({ children }) {
   const membersCache = useRef(new Map());
   const prevMembersRef = useRef([]);
   const typingTimeoutRef = useRef(null);
+  const messagesMapRef = useRef(new Map());
+  const messagesLimitRef = useRef(20);
+  
+  // Load more messages function - initialize it outside useEffect
+  const loadMoreMessages = useCallback((count) => {
+    // Get all messages sorted by timestamp
+    const allMessages = Array.from(messagesMapRef.current.values())
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    
+    const totalMessages = allMessages.length;
+    
+    // If we already show all messages, nothing more to load
+    // Make this check more strict to ensure we properly detect when all messages are loaded
+    if (messagesLimitRef.current >= totalMessages) {
+      setHasMoreMessages(false);
+      return Promise.resolve(false);
+    }
+    
+    // Track the previous limit to detect if we actually loaded more messages
+    const previousLimit = messagesLimitRef.current;
+    
+    // Increase the limit, but don't exceed total message count
+    const newLimit = Math.min(messagesLimitRef.current + count, totalMessages);
+    messagesLimitRef.current = newLimit;
+    
+    // Check if we've loaded all messages or if the limit didn't increase
+    // (which would indicate we've reached the top)
+    const hasMore = newLimit < totalMessages && newLimit > previousLimit;
+    
+    // If we've loaded all messages or didn't load any new ones, set hasMore to false
+    if (!hasMore || totalMessages - newLimit < 5) {
+      setHasMoreMessages(false);
+    } else {
+      setHasMoreMessages(true);
+    }
+    
+    // Get messages to show - using the simple slice approach
+    const messagesToShow = allMessages.slice(0, newLimit);
+    
+    // Log diagnostic info
+    console.log(`Messages loaded: ${messagesToShow.length}, Total: ${totalMessages}, Has more: ${hasMore}`);
+    
+    // Update messages state directly - simpler and more reliable
+    setMessages(messagesToShow);
+    
+    return Promise.resolve(hasMore);
+  }, []);
   
   // Memoize functions to prevent them from changing on each render
   const clearInviteLink = useCallback(() => {
@@ -243,7 +291,55 @@ export function ChatProvider({ children }) {
     
     let isMounted = true;
     const messagesRef = ref(db, `chats/${currentChat.id}/messages`);
-    const messagesMap = new Map();
+    
+    // Track connection state to handle reconnections properly
+    let reconnectHandler = null;
+    
+    // Check if we're reconnecting to avoid resetting message state
+    let isReconnecting = false;
+    
+    // Setup connection monitoring for this specific feature
+    const connectedRef = ref(db, '.info/connected');
+    const connectionListener = onValue(connectedRef, (snapshot) => {
+      // If we're reconnecting and the component is still mounted
+      if (snapshot.val() && isReconnecting && isMounted) {
+        // Set a flag to avoid clearing messages on reconnect
+        isReconnecting = false;
+        
+        // After reconnection, make sure message state is synced properly
+        clearTimeout(reconnectHandler);
+        reconnectHandler = setTimeout(() => {
+          // If we have existing messages in map, refresh from there instead of clearing
+          if (messagesMapRef.current.size > 0 && isMounted) {
+            const allMessages = Array.from(messagesMapRef.current.values())
+              .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            
+            if (allMessages.length > 0) {
+              // Only update if we have something to show
+              const messageLimit = messagesLimitRef.current;
+              const hasMore = allMessages.length > messageLimit;
+              setHasMoreMessages(hasMore);
+              
+              // Get recent messages based on current limit
+              const messageSlice = allMessages.slice(0, messageLimit);
+              setMessages(messageSlice);
+            }
+          }
+        }, 1000);
+      } else if (!snapshot.val()) {
+        // If we lost connection, mark as reconnecting
+        isReconnecting = true;
+      }
+    });
+    
+    // Clear existing messages map and reset limit
+    if (!isReconnecting) {
+      messagesMapRef.current.clear();
+      messagesLimitRef.current = 20;
+      setHasMoreMessages(true);
+    }
+    
+    let initialLoadComplete = false;
     
     // First time load of this chat - mark as read
     setTimeout(() => {
@@ -254,7 +350,6 @@ export function ChatProvider({ children }) {
 
     // Set initial limit for messages (pagination)
     const MESSAGES_PER_PAGE = 20;
-    let messagesLimit = MESSAGES_PER_PAGE;
     
     // Use child_added for more efficient updates
     const messageAddedListener = onChildAdded(messagesRef, (snapshot) => {
@@ -269,24 +364,48 @@ export function ChatProvider({ children }) {
         ...messageData
       };
       
-      // Store message in map for efficient lookup
-      messagesMap.set(messageId, newMessage);
+      // Store all messages in map for efficient lookup
+      messagesMapRef.current.set(messageId, newMessage);
       
-      // Update the messages array
-      setMessages(prevMessages => {
-        // Check if the message already exists
-        const exists = prevMessages.some(msg => msg.id === messageId);
-        if (exists) {
-          // Update existing message
-          return prevMessages.map(msg => 
-            msg.id === messageId ? newMessage : msg
-          );
-        } else {
-          // Add new message
-          const updatedMessages = [...prevMessages, newMessage];
-          return updatedMessages.sort((a, b) => a.timestamp - b.timestamp);
-        }
-      });
+      // After we've finished collecting messages, update the state once
+      if (!initialLoadComplete) {
+        // After a small delay, consider initial load complete and trigger rendering
+        setTimeout(() => {
+          if (!isMounted) return;
+          
+          initialLoadComplete = true;
+          
+          // Sort all messages by timestamp
+          const allMessages = Array.from(messagesMapRef.current.values())
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          
+          // For initial load, show the most recent messages based on limit
+          messagesLimitRef.current = MESSAGES_PER_PAGE;
+          
+          // Check if we have more messages than the initial page
+          setHasMoreMessages(allMessages.length > MESSAGES_PER_PAGE);
+          
+          // Get the most recent messages for initial display
+          const recentMessages = allMessages.slice(-MESSAGES_PER_PAGE);
+          setMessages(recentMessages);
+        }, 500);
+      } else {
+        // After initial load, add new messages as they come in
+        setMessages(prevMessages => {
+          // Check if this message already exists in our list
+          const exists = prevMessages.some(msg => msg.id === messageId);
+          if (exists) {
+            // Update existing message
+            return prevMessages.map(msg => 
+              msg.id === messageId ? newMessage : msg
+            );
+          } else {
+            // For new messages, add them to the end and maintain sorting
+            const updated = [...prevMessages, newMessage];
+            return updated.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          }
+        });
+      }
     });
     
     // Use child_changed for updated messages
@@ -303,7 +422,7 @@ export function ChatProvider({ children }) {
       };
       
       // Update the message in the map
-      messagesMap.set(messageId, updatedMessage);
+      messagesMapRef.current.set(messageId, updatedMessage);
       
       // Update the messages array
       setMessages(prevMessages => 
@@ -320,7 +439,7 @@ export function ChatProvider({ children }) {
       const messageId = snapshot.key;
       
       // Remove message from map
-      messagesMap.delete(messageId);
+      messagesMapRef.current.delete(messageId);
       
       // Remove message from array
       setMessages(prevMessages => 
@@ -328,33 +447,17 @@ export function ChatProvider({ children }) {
       );
     });
     
-    // Load more messages function
-    const loadMoreMessages = (count) => {
-      messagesLimit += count;
-      // Re-sort and slice messages from map to implement pagination
-      const allMessages = Array.from(messagesMap.values())
-        .sort((a, b) => a.timestamp - b.timestamp);
-      
-      // Check if we've loaded all messages
-      const hasMore = messagesMap.size > messagesLimit;
-      
-      // Update the messages state with the new limit
-      setMessages(allMessages.slice(-messagesLimit));
-      
-      // Return a promise that resolves with whether there are more messages to load
-      return Promise.resolve(hasMore);
-    };
-    
-    // Expose the load more function
-    contextValue.loadMoreMessages = loadMoreMessages;
-    
     return () => {
       isMounted = false;
+      if (reconnectHandler) {
+        clearTimeout(reconnectHandler);
+      }
+      connectionListener();
       messageAddedListener();
-      messageChangedListener();
-      messageRemovedListener();
+      if (messageChangedListener) messageChangedListener();
+      if (messageRemovedListener) messageRemovedListener();
     };
-  }, [currentChat?.id, user]);
+  }, [currentChat?.id, user, markChatAsRead]);
 
   // Memoize the sendMessage function
   const sendMessage = useCallback(async (content) => {
@@ -914,7 +1017,9 @@ export function ChatProvider({ children }) {
     FILE_SIZE_LIMIT,
     ALLOWED_FILE_TYPES,
     typingUsers,
-    setTypingStatus
+    setTypingStatus,
+    loadMoreMessages,
+    hasMoreMessages
   };
 
   return (
