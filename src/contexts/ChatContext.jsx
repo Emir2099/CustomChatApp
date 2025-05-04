@@ -688,6 +688,16 @@ export function ChatProvider({ children }) {
             addedBy: user.uid
           }
         }), {})
+      },
+      // Initialize an empty messages object to create the collection
+      messages: {
+        initialMessage: {
+          content: 'Chat created',
+          sender: user.uid,
+          senderName: user.displayName || user.email,
+          timestamp: Date.now(),
+          type: 'system'
+        }
       }
     };
 
@@ -713,6 +723,119 @@ export function ChatProvider({ children }) {
     } catch (error) {
       console.error('Error creating group:', error);
       throw new Error('Failed to create group: ' + error.message);
+    }
+  }, [user, handleChatSelect]);
+
+  // Function to create a private chat (direct message) between two users
+  const createPrivateChat = useCallback(async (otherUserId) => {
+    if (!user) {
+      throw new Error('You must be logged in to start a direct message');
+    }
+
+    if (otherUserId === user.uid) {
+      throw new Error('Cannot create a chat with yourself');
+    }
+
+    // Get the other user's data
+    const otherUserRef = ref(db, `users/${otherUserId}`);
+    const otherUserSnapshot = await get(otherUserRef);
+    const otherUserData = otherUserSnapshot.val();
+
+    if (!otherUserData) {
+      throw new Error('User not found');
+    }
+
+    // Check if a chat already exists between these users
+    const userChatsRef = ref(db, `users/${user.uid}/chats`);
+    const userChatsSnapshot = await get(userChatsRef);
+    const userChats = userChatsSnapshot.val() || {};
+
+    // Loop through existing chats to find if there's already a private chat with this user
+    const existingChats = Object.entries(userChats);
+    for (const [chatId] of existingChats) {
+      // Get full chat data
+      const chatRef = ref(db, `chats/${chatId}`);
+      const chatSnapshot = await get(chatRef);
+      const fullChatData = chatSnapshot.val();
+
+      // If this is a private chat with just these two users, return it
+      if (fullChatData && 
+          fullChatData.info.type === 'private' && 
+          Object.keys(fullChatData.members || {}).length === 2 &&
+          fullChatData.members[otherUserId]) {
+        // Return existing chat
+        return handleChatSelect({ id: chatId, ...fullChatData.info });
+      }
+    }
+
+    // If no existing chat was found, create a new one
+    const chatRef = push(ref(db, 'chats'));
+    const chatId = chatRef.key;
+
+    // Determine chat name (for the current user, it should show the other user's name)
+    const chatName = otherUserData.displayName || otherUserData.email;
+
+    const chatData = {
+      info: {
+        name: chatName,
+        type: 'private',
+        createdAt: Date.now(),
+        lastMessage: 'Chat started',
+        lastMessageTime: Date.now(),
+        createdBy: user.uid,
+        memberCount: 2,
+        // Store both user IDs in the chat for easy lookup
+        participants: {
+          [user.uid]: true,
+          [otherUserId]: true
+        }
+      },
+      members: {
+        [user.uid]: {
+          role: 'member',
+          joinedAt: Date.now()
+        },
+        [otherUserId]: {
+          role: 'member',
+          joinedAt: Date.now()
+        }
+      },
+      // Initialize an empty messages object to create the collection
+      messages: {
+        initialMessage: {
+          content: 'Chat started',
+          sender: user.uid,
+          senderName: user.displayName || user.email,
+          timestamp: Date.now(),
+          type: 'system'
+        }
+      }
+    };
+
+    try {
+      // Create the chat document
+      await set(ref(db, `chats/${chatId}`), chatData);
+
+      // Add chat to both users' chat lists
+      const updates = {};
+      updates[`users/${user.uid}/chats/${chatId}`] = {
+        joinedAt: Date.now(),
+        role: 'member'
+      };
+      updates[`users/${otherUserId}/chats/${chatId}`] = {
+        joinedAt: Date.now(),
+        role: 'member'
+      };
+      
+      await update(ref(db), updates);
+      
+      // Switch to the new chat
+      handleChatSelect({ id: chatId, ...chatData.info });
+      
+      return chatId;
+    } catch (error) {
+      console.error('Error creating private chat:', error);
+      throw new Error('Failed to create private chat: ' + error.message);
     }
   }, [user, handleChatSelect]);
 
@@ -1061,6 +1184,7 @@ export function ChatProvider({ children }) {
     sendFileMessage,
     fileUploads,
     createGroup,
+    createPrivateChat,
     members,
     users,
     updateGroupInfo,
