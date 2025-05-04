@@ -4,11 +4,12 @@ import CreateGroupModal from './CreateGroupModal';
 import { useChat } from '../../contexts/ChatContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ChatListSkeleton from './ChatListSkeleton';
 
 const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const { chats, currentChat, clearInviteLink, handleChatSelect } = useChat();
+  const { chats, currentChat, clearInviteLink, handleChatSelect, loading } = useChat();
   useAuth();
   const navigate = useNavigate();
   const [overflowingChats, setOverflowingChats] = useState({});
@@ -86,105 +87,109 @@ const Sidebar = () => {
         </svg>
       </div>
 
-      <div className={styles.chatList}>
-        {filteredChats.map(chat => (
-          <div 
-            key={chat.id} 
-            className={`${styles.chatItem} 
-              ${chat.unreadCount > 0 ? styles.unread : ''} 
-              ${currentChat?.id === chat.id ? styles.active : ''}`}
-            onClick={() => onChatSelect(chat)}
-            ref={el => chatItemRefs.current[chat.id] = el}
-          >
-            <div className={styles.avatarContainer}>
-              {chat.type === 'group' ? (
-                <div className={styles.groupAvatar}>
-                  {chat.iconURL || chat.photoURL ? (
-                    <img 
-                      src={chat.iconURL || chat.photoURL} 
-                      alt={chat.name} 
-                    />
-                  ) : (
-                    <div className={styles.groupInitial}>
-                      {chat.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <img src={chat.photoURL || '/default-avatar.png'} alt={chat.name} />
-              )}
-            </div>
-            
-            <div className={styles.chatInfo}>
-              <div className={styles.chatHeader}>
-                <h3>{chat.name}</h3>
-                {chat.type === 'group' && (
-                  <span className={styles.memberCount}>
-                    {chat.memberCount || 0} members
-                  </span>
+      <div className={`${styles.chatList} ${loading ? styles.loading : ''}`}>
+        {loading ? (
+          <ChatListSkeleton count={6} />
+        ) : (
+          filteredChats.map(chat => (
+            <div 
+              key={chat.id} 
+              className={`${styles.chatItem} 
+                ${chat.unreadCount > 0 ? styles.unread : ''} 
+                ${currentChat?.id === chat.id ? styles.active : ''}`}
+              onClick={() => onChatSelect(chat)}
+              ref={el => chatItemRefs.current[chat.id] = el}
+            >
+              <div className={styles.avatarContainer}>
+                {chat.type === 'group' ? (
+                  <div className={styles.groupAvatar}>
+                    {chat.iconURL || chat.photoURL ? (
+                      <img 
+                        src={chat.iconURL || chat.photoURL} 
+                        alt={chat.name} 
+                      />
+                    ) : (
+                      <div className={styles.groupInitial}>
+                        {chat.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <img src={chat.photoURL || '/default-avatar.png'} alt={chat.name} />
                 )}
               </div>
               
-              {(chat.unreadMessages > 0 || chat.unreadAnnouncements > 0 || chat.unreadPolls > 0) && (
-                <div className={styles.unreadBadges}>
-                  {overflowingChats[chat.id] ? (
-                    <>
-                      {chat.unreadMessages > 0 && (
-                        <span 
-                          className={`${styles.dotBadge} ${styles.messageBadge}`}
-                          data-count={chat.unreadMessages}
-                        />
-                      )}
-                      
-                      {chat.unreadAnnouncements > 0 && (
-                        <span 
-                          className={`${styles.dotBadge} ${styles.announcementBadge}`}
-                          data-count={chat.unreadAnnouncements}
-                        />
-                      )}
-                      
-                      {chat.unreadPolls > 0 && (
-                        <span 
-                          className={`${styles.dotBadge} ${styles.pollBadge}`}
-                          data-count={chat.unreadPolls}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <>
-                  {chat.unreadMessages > 0 && (
-                    <span 
-                      className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
-                      data-tooltip="New messages"
-                    >
-                      {chat.unreadMessages}
+              <div className={styles.chatInfo}>
+                <div className={styles.chatHeader}>
+                  <h3>{chat.name}</h3>
+                  {chat.type === 'group' && (
+                    <span className={styles.memberCount}>
+                      {chat.memberCount || 0} members
                     </span>
-                  )}
-                  
-                  {chat.unreadAnnouncements > 0 && (
-                    <span 
-                      className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
-                      data-tooltip="New announcements"
-                    >
-                      {chat.unreadAnnouncements}
-                    </span>
-                  )}
-                  
-                  {chat.unreadPolls > 0 && (
-                    <span 
-                      className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
-                      data-tooltip="New polls"
-                    >
-                      {chat.unreadPolls}
-                    </span>
-                      )}
-                    </>
                   )}
                 </div>
-              )}
+                
+                {(chat.unreadMessages > 0 || chat.unreadAnnouncements > 0 || chat.unreadPolls > 0) && (
+                  <div className={styles.unreadBadges}>
+                    {overflowingChats[chat.id] ? (
+                      <>
+                        {chat.unreadMessages > 0 && (
+                          <span 
+                            className={`${styles.dotBadge} ${styles.messageBadge}`}
+                            data-count={chat.unreadMessages}
+                          />
+                        )}
+                        
+                        {chat.unreadAnnouncements > 0 && (
+                          <span 
+                            className={`${styles.dotBadge} ${styles.announcementBadge}`}
+                            data-count={chat.unreadAnnouncements}
+                          />
+                        )}
+                        
+                        {chat.unreadPolls > 0 && (
+                          <span 
+                            className={`${styles.dotBadge} ${styles.pollBadge}`}
+                            data-count={chat.unreadPolls}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                    {chat.unreadMessages > 0 && (
+                      <span 
+                        className={`${styles.unreadBadge} ${styles.messageBadge} ${styles.badgeWithTooltip}`}
+                        data-tooltip="New messages"
+                      >
+                        {chat.unreadMessages}
+                      </span>
+                    )}
+                    
+                    {chat.unreadAnnouncements > 0 && (
+                      <span 
+                        className={`${styles.unreadBadge} ${styles.announcementBadge} ${styles.badgeWithTooltip}`}
+                        data-tooltip="New announcements"
+                      >
+                        {chat.unreadAnnouncements}
+                      </span>
+                    )}
+                    
+                    {chat.unreadPolls > 0 && (
+                      <span 
+                        className={`${styles.unreadBadge} ${styles.pollBadge} ${styles.badgeWithTooltip}`}
+                        data-tooltip="New polls"
+                      >
+                        {chat.unreadPolls}
+                      </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {showCreateGroup && (

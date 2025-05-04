@@ -58,6 +58,7 @@ export function ChatProvider({ children }) {
   const [fileUploads, setFileUploads] = useState({});
   const [typingUsers, setTypingUsers] = useState({});
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loading, setLoading] = useState(true);
   
   // Use refs to track previous values and listeners
   const chatListenersRef = useRef([]);
@@ -199,6 +200,9 @@ export function ChatProvider({ children }) {
   useEffect(() => {
     if (!user) return;
     
+    // Set loading to true when user changes
+    setLoading(true);
+    
     // Clean up previous listeners
     const cleanupListeners = () => {
       chatListenersRef.current.forEach(listener => listener());
@@ -213,6 +217,15 @@ export function ChatProvider({ children }) {
       
       const chatIds = snapshot.val() || {};
       
+      if (Object.keys(chatIds).length === 0) {
+        // No chat IDs, set loading to false immediately
+        setLoading(false);
+      }
+      
+      // Track how many chats have been processed
+      let processedChats = 0;
+      const totalChats = Object.keys(chatIds).length;
+      
       Object.keys(chatIds).forEach(chatId => {
         const chatRef = ref(db, `chats/${chatId}`);
         const userLastReadRef = ref(db, `users/${user.uid}/chats/${chatId}/lastRead`);
@@ -220,7 +233,13 @@ export function ChatProvider({ children }) {
         const chatListener = onValue(chatRef, async (chatSnapshot) => {
           try {
             const chatData = chatSnapshot.val();
-            if (!chatData) return;
+            if (!chatData) {
+              processedChats++;
+              if (processedChats >= totalChats) {
+                setLoading(false);
+              }
+              return;
+            }
             
             const userLastReadSnapshot = await get(userLastReadRef);
             const lastRead = userLastReadSnapshot.val() || 0;
@@ -256,6 +275,10 @@ export function ChatProvider({ children }) {
             // Only update if the data has actually changed
             const prevChatData = prevChatsRef.current[chatId];
             if (prevChatData && isEqual(prevChatData, newChatData)) {
+              processedChats++;
+              if (processedChats >= totalChats) {
+                setLoading(false);
+              }
               return;
             }
             
@@ -270,8 +293,17 @@ export function ChatProvider({ children }) {
               ];
               return updated.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
             });
+            
+            processedChats++;
+            if (processedChats >= totalChats) {
+              setLoading(false);
+            }
           } catch (error) {
             console.error('Error handling chat update:', error);
+            processedChats++;
+            if (processedChats >= totalChats) {
+              setLoading(false);
+            }
           }
         });
         
@@ -1019,7 +1051,8 @@ export function ChatProvider({ children }) {
     typingUsers,
     setTypingStatus,
     loadMoreMessages,
-    hasMoreMessages
+    hasMoreMessages,
+    loading
   };
 
   return (

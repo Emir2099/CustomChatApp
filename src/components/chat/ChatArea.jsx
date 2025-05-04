@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChat } from '../../contexts/ChatContext';
 import styles from './ChatArea.module.css';
 import React from 'react';
+import ChatAreaSkeleton from './ChatAreaSkeleton';
 
 export default function ChatArea() {
   const { 
@@ -18,13 +19,15 @@ export default function ChatArea() {
     typingUsers,
     setTypingStatus,
     loadMoreMessages,
-    hasMoreMessages
+    hasMoreMessages,
+    loading
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
   const [fileUploadError, setFileUploadError] = useState('');
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [reachedTop, setReachedTop] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -39,6 +42,7 @@ export default function ChatArea() {
   const hasUnreadMessagesRef = useRef(false);
   const typingTimeoutRef = useRef(null);
   const [isAtTop, setIsAtTop] = useState(false);
+  const currentChatIdRef = useRef(null);
 
   // Force check if scrolling is actually needed
   const checkIfScrollNeeded = () => {
@@ -48,6 +52,26 @@ export default function ChatArea() {
     // If content is not tall enough to scroll, no button needed
     return scrollHeight > clientHeight + 50; // Adding buffer
   };
+
+  // Set message loading state when switching chats
+  useEffect(() => {
+    if (currentChat?.id && currentChat.id !== currentChatIdRef.current) {
+      setMessagesLoading(true);
+      currentChatIdRef.current = currentChat.id;
+    }
+  }, [currentChat?.id]);
+
+  // Clear message loading state once messages are loaded
+  useEffect(() => {
+    if (messages.length > 0 && messagesLoading) {
+      // Short delay to allow messages to render
+      const timer = setTimeout(() => {
+        setMessagesLoading(false);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [messages, messagesLoading]);
 
   // Check if the current chat has unread messages
   useEffect(() => {
@@ -795,6 +819,16 @@ export default function ChatArea() {
         </div>
       </div>
     );
+  }
+
+  // Only show skeleton loader during initial load, not every time we switch chats
+  if (loading && !currentChat?.id) {
+    return <ChatAreaSkeleton />;
+  }
+
+  // Show skeleton when we're loading messages for a particular chat
+  if (messagesLoading && messages.length === 0) {
+    return <ChatAreaSkeleton />;
   }
 
   return (
