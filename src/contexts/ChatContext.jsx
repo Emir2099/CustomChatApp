@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../config/firebase';
-import { ref, onValue, push, set, update, get, serverTimestamp } from 'firebase/database';
+import { ref, onValue, push, set, update, get, serverTimestamp, onChildAdded, onChildChanged, onChildRemoved } from 'firebase/database';
 import { useAuth } from './AuthContext';
 import PropTypes from 'prop-types';
 
@@ -242,6 +242,8 @@ export function ChatProvider({ children }) {
     if (!currentChat?.id || !user) return;
     
     let isMounted = true;
+    const messagesRef = ref(db, `chats/${currentChat.id}/messages`);
+    const messagesMap = new Map();
     
     // First time load of this chat - mark as read
     setTimeout(() => {
@@ -250,26 +252,107 @@ export function ChatProvider({ children }) {
       }
     }, 100);
 
-    const messagesRef = ref(db, `chats/${currentChat.id}/messages`);
+    // Set initial limit for messages (pagination)
+    const MESSAGES_PER_PAGE = 20;
+    let messagesLimit = MESSAGES_PER_PAGE;
     
-    const messageListener = onValue(messagesRef, (snapshot) => {
+    // Use child_added for more efficient updates
+    const messageAddedListener = onChildAdded(messagesRef, (snapshot) => {
       if (!isMounted) return;
       
-      const messagesData = snapshot.val() || {};
+      const messageData = snapshot.val();
+      if (!messageData) return;
       
-      const formattedMessages = Object.entries(messagesData)
-        .map(([id, message]) => ({
-          id,
-          ...message
-        }))
+      const messageId = snapshot.key;
+      const newMessage = {
+        id: messageId,
+        ...messageData
+      };
+      
+      // Store message in map for efficient lookup
+      messagesMap.set(messageId, newMessage);
+      
+      // Update the messages array
+      setMessages(prevMessages => {
+        // Check if the message already exists
+        const exists = prevMessages.some(msg => msg.id === messageId);
+        if (exists) {
+          // Update existing message
+          return prevMessages.map(msg => 
+            msg.id === messageId ? newMessage : msg
+          );
+        } else {
+          // Add new message
+          const updatedMessages = [...prevMessages, newMessage];
+          return updatedMessages.sort((a, b) => a.timestamp - b.timestamp);
+        }
+      });
+    });
+    
+    // Use child_changed for updated messages
+    const messageChangedListener = onChildChanged(messagesRef, (snapshot) => {
+      if (!isMounted) return;
+      
+      const messageId = snapshot.key;
+      const messageData = snapshot.val();
+      if (!messageData) return;
+      
+      const updatedMessage = {
+        id: messageId,
+        ...messageData
+      };
+      
+      // Update the message in the map
+      messagesMap.set(messageId, updatedMessage);
+      
+      // Update the messages array
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === messageId ? updatedMessage : msg
+        )
+      );
+    });
+    
+    // Use child_removed for deleted messages
+    const messageRemovedListener = onChildRemoved(messagesRef, (snapshot) => {
+      if (!isMounted) return;
+      
+      const messageId = snapshot.key;
+      
+      // Remove message from map
+      messagesMap.delete(messageId);
+      
+      // Remove message from array
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.id !== messageId)
+      );
+    });
+    
+    // Load more messages function
+    const loadMoreMessages = (count) => {
+      messagesLimit += count;
+      // Re-sort and slice messages from map to implement pagination
+      const allMessages = Array.from(messagesMap.values())
         .sort((a, b) => a.timestamp - b.timestamp);
       
-      setMessages(formattedMessages);
-    });
+      // Check if we've loaded all messages
+      const hasMore = messagesMap.size > messagesLimit;
+      
+      // Update the messages state with the new limit
+      setMessages(allMessages.slice(-messagesLimit));
+      
+      // Return a promise that resolves with whether there are more messages to load
+      return Promise.resolve(hasMore);
+    };
+    
+    // Expose the load more function
+    contextValue.loadMoreMessages = loadMoreMessages;
     
     return () => {
       isMounted = false;
-      messageListener();
+      messageAddedListener();
+      messageChangedListener();
+      messageRemovedListener();
     };
   }, [currentChat?.id, user]);
 
@@ -304,7 +387,7 @@ export function ChatProvider({ children }) {
     }
   }, [currentChat, user]);
 
-  // Send a file message
+  // Send a file message with optimizations
   const sendFileMessage = useCallback(async (file, progressCallback) => {
     if (!currentChat?.id || !user || !file) return null;
     
@@ -318,7 +401,7 @@ export function ChatProvider({ children }) {
       throw new Error('File type not supported');
     }
 
-    // Generate a unique ID for this upload - moved outside try block to fix scope
+    // Generate a unique ID for this upload
     const uploadId = Math.random().toString(36).substring(2, 15);
 
     try {
@@ -328,8 +411,10 @@ export function ChatProvider({ children }) {
         [uploadId]: { progress: 0, filename: file.name }
       }));
       
+      // For images, we'll compress them client-side before converting to base64
+      // The compression is handled in the ChatArea component
+      
       // Convert file to base64 (simulating upload)
-      // This will be slow for large files but works without a server
       const base64 = await fileToBase64(file);
       
       // Update progress to simulate upload

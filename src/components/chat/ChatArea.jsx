@@ -16,11 +16,14 @@ export default function ChatArea() {
     FILE_SIZE_LIMIT,
     ALLOWED_FILE_TYPES,
     typingUsers,
-    setTypingStatus
+    setTypingStatus,
+    loadMoreMessages
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
   const [fileUploadError, setFileUploadError] = useState('');
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -189,7 +192,7 @@ export default function ChatArea() {
     isScrollingToBottomRef.current = true;
     
     // Immediately hide button and prevent any reappearance during scrolling
-    setShowScrollButton(false);
+      setShowScrollButton(false);
     setButtonFading(false);
     
     // Reset the new message indicator when scrolling to bottom
@@ -273,7 +276,7 @@ export default function ChatArea() {
     if (!newMessage.trim() || !currentChat?.id) return;
     
     const message = newMessage.trim();
-    setNewMessage('');
+      setNewMessage('');
     
     // Clear typing status
     setTypingStatus(false);
@@ -328,7 +331,7 @@ export default function ChatArea() {
     }
   };
 
-  // Handle file upload
+  // Handle file upload with optimized image compression
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -354,8 +357,14 @@ export default function ChatArea() {
       // Prepare for upload - clear any previous errors
       setFileUploadError('');
       
+      // Apply client-side compression if it's an image
+      let processedFile = file;
+      if (file.type.startsWith('image/')) {
+        processedFile = await compressImage(file);
+      }
+      
       // Send the file and track progress
-      await sendFileMessage(file, () => {
+      await sendFileMessage(processedFile, () => {
         // Progress is tracked in the ChatContext
       });
       
@@ -373,16 +382,78 @@ export default function ChatArea() {
       // Immediately hide button and prevent any reappearance during scrolling
       setShowScrollButton(false);
       setButtonFading(false);
-      
-      // Clear progress after a delay
-      setTimeout(() => {
-        // Progress is managed by ChatContext
-      }, 2000);
     } catch (error) {
       console.error('Error uploading file:', error);
       setFileUploadError(error.message || 'Failed to upload file');
       setTimeout(() => setFileUploadError(''), 5000);
     }
+  };
+
+  // Compress image before uploading
+  const compressImage = async (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = () => {
+        const img = new Image();
+        img.src = reader.result;
+        
+        img.onload = () => {
+          // Determine target dimensions - scale down large images
+          let targetWidth = img.width;
+          let targetHeight = img.height;
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          
+          if (img.width > MAX_WIDTH || img.height > MAX_HEIGHT) {
+            if (img.width > img.height) {
+              targetWidth = MAX_WIDTH;
+              targetHeight = Math.round(img.height * (MAX_WIDTH / img.width));
+            } else {
+              targetHeight = MAX_HEIGHT;
+              targetWidth = Math.round(img.width * (MAX_HEIGHT / img.height));
+            }
+          }
+          
+          // Create canvas and resize image
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+          
+          // Get the compressed data as a Blob
+          const compressedFormat = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          const compressionQuality = file.size > 1024 * 1024 ? 0.6 : 0.8; // Lower quality for larger files
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              // Create a new file from the blob
+              const compressedFile = new File([blob], file.name, {
+                type: compressedFormat,
+                lastModified: Date.now()
+              });
+              
+              resolve(compressedFile);
+            } else {
+              // If compression fails, use the original file
+              resolve(file);
+            }
+          }, compressedFormat, compressionQuality);
+        };
+        
+        img.onerror = () => {
+          reject(new Error('Failed to load image for compression'));
+        };
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read the file'));
+      };
+    });
   };
 
   // Format file size
@@ -407,16 +478,29 @@ export default function ChatArea() {
   const renderFilePreview = (message) => {
     const { fileCategory, fileData, fileName, fileSize } = message;
     
+    // Check if image embedding is disabled in the current chat
+    const isImageEmbeddingDisabled = currentChat?.embedImages === false;
+    
     return (
       <div className={styles.fileMessage}>
         <div className={styles.fileHeader}>
-          {fileCategory === 'image' ? (
+          {fileCategory === 'image' && !isImageEmbeddingDisabled ? (
             <div className={styles.imagePreview}>
-              <img src={fileData} alt={fileName} />
+              <img 
+                src={fileData} 
+                alt={fileName} 
+                loading="lazy" 
+              />
             </div>
           ) : (
             <div className={styles.fileIcon}>
-              {fileCategory === 'pdf' && (
+              {fileCategory === 'image' && isImageEmbeddingDisabled ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              ) : fileCategory === 'pdf' && (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 3v4a1 1 0 001 1h4" />
                   <path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z" />
@@ -529,6 +613,31 @@ export default function ChatArea() {
     };
   }, [setTypingStatus, currentChat?.id]);
 
+  // Handle loading more messages
+  const handleLoadMore = () => {
+    if (isLoadingMore || !loadMoreMessages) return;
+    
+    setIsLoadingMore(true);
+    const scrollPosition = messageListRef.current.scrollHeight;
+    
+    // Load 20 more messages
+    loadMoreMessages(20).then((hasMore) => {
+      setHasMoreMessages(hasMore);
+      setTimeout(() => {
+        if (messageListRef.current) {
+          const newScrollHeight = messageListRef.current.scrollHeight;
+          messageListRef.current.scrollTop = newScrollHeight - scrollPosition;
+        }
+        setIsLoadingMore(false);
+      }, 300);
+    });
+  };
+
+  // Reset hasMoreMessages when changing chats
+  useEffect(() => {
+    setHasMoreMessages(true);
+  }, [currentChat?.id]);
+
   if (!currentChat) {
     return (
       <div className={styles.emptyChatArea}>
@@ -581,6 +690,28 @@ export default function ChatArea() {
         ref={messageListRef} 
         onScroll={handleScroll}
       >
+        {/* Load more messages button */}
+        {messages.length >= 20 && hasMoreMessages && (
+          <div className={styles.loadMoreContainer}>
+            <button 
+              className={styles.loadMoreButton}
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? (
+                <div className={styles.loadingSpinner}></div>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M7 13l5-5 5 5"></path>
+                  </svg>
+                  <span>Load more messages</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+        
         {messages.map((message, index) => (
           <React.Fragment key={message.id}>
             {shouldShowDate(message, index, messages) && (
@@ -730,9 +861,9 @@ export default function ChatArea() {
           </div>
         )}
         <div className={styles.inputContainer}>
-          <input
-            type="text"
-            value={newMessage}
+        <input
+          type="text"
+          value={newMessage}
             onChange={handleMessageChange}
             placeholder="Type a message..."
             className={styles.messageInput}
@@ -748,10 +879,10 @@ export default function ChatArea() {
             </svg>
           </button>
           <button type="submit" className={styles.sendButton} title="Send message">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-          </button>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
         </div>
 
         {/* Hidden file input */}
