@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './ChatArea.module.css';
+import PropTypes from 'prop-types'; // Import PropTypes for validation
 
 // Expanded reaction emojis
 const REACTIONS = [
@@ -31,7 +32,7 @@ const REACTIONS = [
 const EMOJIS_PER_PAGE = 8;
 
 function MessageReactions({ message }) {
-  const { handleReaction } = useChat();
+  const { handleReaction, allUsers } = useChat();
   const { user } = useAuth();
   const [showReactionPanel, setShowReactionPanel] = useState(false);
   const [newReactions, setNewReactions] = useState({});
@@ -40,9 +41,6 @@ function MessageReactions({ message }) {
   const panelRef = useRef(null);
   const timerRef = useRef(null);
   const wrapperRef = useRef(null);
-
-  // Check if the message is sent by the current user
-  const isSentByUser = message.sender === user?.uid;
 
   // Calculate total pages based on emojis per page
   const totalPages = Math.ceil(REACTIONS.length / EMOJIS_PER_PAGE);
@@ -133,6 +131,20 @@ function MessageReactions({ message }) {
     };
   }, []);
 
+  // Get user display names for tooltip
+  const getReactorNames = (users) => {
+    if (!users || !allUsers) return [];
+    
+    // Filter out users who actually reacted
+    const reactorIds = Object.keys(users).filter(id => users[id]);
+    
+    // Get display names for users who reacted
+    return reactorIds.map(id => {
+      const userInfo = allUsers[id];
+      return userInfo ? userInfo.displayName || 'Unknown user' : 'Unknown user';
+    });
+  };
+
   const addReaction = async (emoji) => {
     if (!handleReaction || !message.id) {
       console.error('Cannot add reaction: missing handleReaction function or message.id');
@@ -202,16 +214,29 @@ function MessageReactions({ message }) {
           
           const hasReacted = users[user?.uid];
           const isNew = newReactions[emoji];
+          const reactorNames = getReactorNames(users);
           
           return (
             <button 
               key={emoji} 
               className={`${styles.reactionCounter} ${hasReacted ? styles.active : ''} ${isNew ? styles.new : ''}`}
               onClick={() => addReaction(emoji)}
-              title={`${reactors.length} reaction${reactors.length !== 1 ? 's' : ''}`}
             >
               <span className={styles.reactionEmoji}>{emoji}</span>
               <span className={styles.reactionCount}>{reactors.length}</span>
+              
+              {/* Tooltip to show who reacted */}
+              <div className={styles.reactorTooltip}>
+                {reactorNames.length > 0 ? (
+                  reactorNames.map((name, index) => (
+                    <span key={index} className={styles.reactorName}>
+                      {name}
+                    </span>
+                  ))
+                ) : (
+                  <span className={styles.reactorName}>Unknown users</span>
+                )}
+              </div>
             </button>
           );
         })}
@@ -219,5 +244,14 @@ function MessageReactions({ message }) {
     </div>
   );
 }
+
+// Add prop types to fix linter warnings
+MessageReactions.propTypes = {
+  message: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    sender: PropTypes.string,
+    reactions: PropTypes.object
+  }).isRequired
+};
 
 export default MessageReactions; 

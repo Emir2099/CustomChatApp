@@ -1529,3 +1529,51 @@
 .reactionCounter.new {
   animation: reactionPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
+/* Custom tooltip for reactors names */
+.reactorTooltip {
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(31, 41, 55, 0.95);
+  color: white;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  max-width: 200px;
+  text-align: center;
+}
+
+.reactorTooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(31, 41, 55, 0.95) transparent transparent transparent;
+}
+
+.reactionCounter {
+  position: relative;
+}
+
+.reactionCounter:hover .reactorTooltip {
+  opacity: 1;
+}
+
+.reactorName {
+  display: block;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}

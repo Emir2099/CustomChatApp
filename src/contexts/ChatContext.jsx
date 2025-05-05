@@ -60,6 +60,7 @@ export function ChatProvider({ children }) {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loading, setLoading] = useState(true);
   const [chatsLoading, setChatsLoading] = useState(true);
+  const [allUsers, setAllUsers] = useState({});
   
   // Use refs to track previous values and listeners
   const chatListenersRef = useRef([]);
@@ -850,9 +851,13 @@ export function ChatProvider({ children }) {
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
         
-        if (!snapshot.exists() || !isMounted) return;
+        if (!snapshot.exists()) return;
         
         const usersData = snapshot.val();
+        
+        // Update the allUsers object
+        setAllUsers(usersData);
+        
         const usersList = Object.entries(usersData)
           .map(([uid, data]) => ({
             uid,
@@ -1251,7 +1256,8 @@ export function ChatProvider({ children }) {
     loadMoreMessages,
     hasMoreMessages,
     loading,
-    chatsLoading
+    chatsLoading,
+    allUsers
   };
 
   return (
