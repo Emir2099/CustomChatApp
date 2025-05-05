@@ -1081,6 +1081,48 @@ export function ChatProvider({ children }) {
     }
   }, [currentChat, user]);
 
+  // Add or remove a reaction to a message
+  const handleReaction = useCallback(async (messageId, reaction) => {
+    if (!currentChat?.id || !user) return;
+    
+    try {
+      // First, get the current message to ensure it exists
+      const messageRef = ref(db, `chats/${currentChat.id}/messages/${messageId}`);
+      const messageSnapshot = await get(messageRef);
+      
+      if (!messageSnapshot.exists()) {
+        console.error('Message does not exist');
+        return;
+      }
+      
+      // Then get the specific reaction data
+      const reactionRef = ref(db, `chats/${currentChat.id}/messages/${messageId}/reactions/${reaction}`);
+      const reactionSnapshot = await get(reactionRef);
+      const reactions = reactionSnapshot.val() || {};
+      
+      const updates = {};
+      
+      // Toggle reaction: remove if exists, add if doesn't
+      if (reactions && reactions[user.uid]) {
+        // User already reacted with this emoji, so remove it
+        updates[`chats/${currentChat.id}/messages/${messageId}/reactions/${reaction}/${user.uid}`] = null;
+      } else {
+        // User hasn't reacted with this emoji yet, so add it
+        updates[`chats/${currentChat.id}/messages/${messageId}/reactions/${reaction}/${user.uid}`] = {
+          timestamp: Date.now(),
+          displayName: user.displayName || user.email
+        };
+      }
+      
+      // Update the database
+      await update(ref(db), updates);
+      
+      console.log(`Reaction ${reaction} toggled for message ${messageId}`);
+    } catch (error) {
+      console.error('Error handling reaction:', error);
+    }
+  }, [currentChat, user]);
+
   // Convert file to base64
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
@@ -1193,6 +1235,7 @@ export function ChatProvider({ children }) {
     createAnnouncement,
     createPoll,
     handleVote,
+    handleReaction,
     announcements,
     polls,
     inviteLink,

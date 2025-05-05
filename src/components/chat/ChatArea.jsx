@@ -4,6 +4,7 @@ import { useChat } from '../../contexts/ChatContext';
 import styles from './ChatArea.module.css';
 import React from 'react';
 import ChatAreaSkeleton from './ChatAreaSkeleton';
+import MessageReactions from './MessageReactions';
 
 export default function ChatArea() {
   const { 
@@ -996,15 +997,40 @@ export default function ChatArea() {
                   </>
                 )}
                 {!message.type && (
-                  <div className={styles.bubble}>
-                    {message.sender !== user?.uid && (
-                      <div className={styles.senderName}>{message.senderName}</div>
-                    )}
-                    {message.content}
-                    <span className={styles.timestamp}>
-                      {formatTime(message.timestamp)}
-                    </span>
-                  </div>
+                  <React.Fragment>
+                    <div 
+                      className={styles.bubbleContainer}
+                    >
+                      <div className={styles.bubble}>
+                        {message.sender !== user?.uid && (
+                          <div className={styles.senderName}>{message.senderName}</div>
+                        )}
+                        {message.content}
+                        <span className={styles.timestamp}>
+                          {formatTime(message.timestamp)}
+                        </span>
+                      </div>
+                      
+                      {/* Add reaction button that appears on hover */}
+                      <button 
+                        className={styles.addReactionHoverButton}
+                        onClick={() => {
+                          // Find the MessageReactions component and trigger its panel
+                          const reactionsElem = document.querySelector(`[data-message-id="${message.id}"]`);
+                          if (reactionsElem) {
+                            const event = new CustomEvent('showReactionPanel');
+                            reactionsElem.dispatchEvent(event);
+                          }
+                        }}
+                        title="Add reaction"
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <MessageReactions message={message} />
+                  </React.Fragment>
                 )}
                 {message.type === 'file' && (
                   <>

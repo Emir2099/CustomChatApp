@@ -77,6 +77,7 @@
   max-width: 70%;
   padding-right: 32px;
   align-items: flex-start;
+  position: relative;
 }
 
 .message.sent {
@@ -105,6 +106,17 @@
   width: fit-content;
   max-width: 100%;
   word-wrap: break-word;
+  transition: all 0.2s;
+  user-select: text;
+}
+
+.bubbleContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.bubble:hover {
+  background: #e9ebf0;
 }
 
 .message.sent .bubble {
@@ -112,6 +124,10 @@
   color: white;
   border-radius: 16px;
   border-top-right-radius: 4px;
+}
+
+.message.sent .bubble:hover {
+  background: #5254d0;
 }
 
 .senderName {
@@ -1259,4 +1275,257 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Reaction styles */
+.reactionsWrapper {
+  position: relative;
+  margin-top: 0;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.reactionsContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.reactionCounter {
+  display: flex;
+  align-items: center;
+  background-color: #f3f4f6;
+  border-radius: 20px;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.message.sent .reactionCounter {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.reactionCounter:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  background-color: #eef2ff;
+  color: #4f46e5;
+  border-color: #c7d2fe;
+}
+
+.message.sent .reactionCounter:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.reactionCounter.active {
+  background-color: #e0e7ff;
+  border-color: #a5b4fc;
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+.message.sent .reactionCounter.active {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: white;
+}
+
+.reactionEmoji {
+  font-size: 15px;
+  line-height: 1;
+  margin-right: 4px;
+}
+
+.reactionCount {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* hover-activated add reaction button */
+.addReactionHoverButton {
+  position: absolute;
+  bottom: -8px;
+  display: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: white;
+  color: #6366f1;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  z-index: 10;
+}
+
+/* Position for received messages (from others) */
+.message:not(.sent) .addReactionHoverButton {
+  right: -10px;
+  left: auto;
+}
+
+/* Position for sent messages (from user) */
+.message.sent .addReactionHoverButton {
+  left: -10px;
+  right: auto;
+}
+
+/* Show reaction button on hover */
+.bubbleContainer:hover .addReactionHoverButton {
+  display: flex;
+}
+
+.addReactionHoverButton:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Reactions panel */
+.reactionsPanel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border-radius: 30px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 8px 10px 8px 16px;
+  gap: 12px;
+  margin-bottom: 8px;
+  animation: fadeInUp 0.2s ease-out;
+  z-index: 10;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.message.sent .reactionsPanel {
+  left: auto;
+  right: 0;
+}
+
+/* Grid layout for emoji reactions with transition */
+.reactionsPanelGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 4px;
+  transition: opacity 0.15s ease;
+}
+
+/* Dots navigation for emoji pages */
+.dotsNavigation {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 2px;
+}
+
+.navigationDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid #6366f1;
+  background-color: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.navigationDot.active {
+  background-color: #6366f1;
+  transform: scale(1.1);
+}
+
+.navigationDot:hover:not(.active) {
+  background-color: #e0e7ff;
+}
+
+.reactionOption {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9fafb;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin: 2px;
+}
+
+.reactionOption:hover {
+  background-color: #e0e7ff;
+  transform: scale(1.15);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.reactionOption:active {
+  transform: scale(0.9);
+}
+
+/* Animation effects for reactions */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Panel transition animations - simplified */
+.reactionsPanelGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 4px;
+  transition: opacity 0.15s ease;
+}
+
+.reactionsPanelGrid.slideLeft, 
+.reactionsPanelGrid.slideRight {
+  animation: fadeChange 0.2s ease;
+}
+
+@keyframes fadeChange {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Animation for new reactions */
+@keyframes reactionPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.reactionCounter.new {
+  animation: reactionPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
