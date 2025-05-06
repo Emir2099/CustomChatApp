@@ -5,6 +5,7 @@ import styles from './ChatArea.module.css';
 import React from 'react';
 import ChatAreaSkeleton from './ChatAreaSkeleton';
 import MessageReactions from './MessageReactions';
+import MessageSearch from './MessageSearch';
 
 export default function ChatArea() {
   const { 
@@ -44,6 +45,8 @@ export default function ChatArea() {
   const typingTimeoutRef = useRef(null);
   const [isAtTop, setIsAtTop] = useState(false);
   const currentChatIdRef = useRef(null);
+  // Add search panel state
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
 
   // Force check if scrolling is actually needed
   const checkIfScrollNeeded = () => {
@@ -825,6 +828,30 @@ export default function ChatArea() {
     return sortedMessages;
   };
 
+  // Add scrollToMessage function
+  const scrollToMessage = (message) => {
+    if (!message || !message.id || !messageListRef.current) return;
+    
+    // Find the message element
+    const messageElement = document.getElementById(`msg-${message.id}`);
+    if (!messageElement) return;
+    
+    // Close the search panel
+    setShowSearchPanel(false);
+    
+    // Scroll to the message
+    messageElement.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'center'
+    });
+    
+    // Highlight the message briefly
+    messageElement.classList.add(styles.highlightMessage);
+    setTimeout(() => {
+      messageElement.classList.remove(styles.highlightMessage);
+    }, 2000);
+  };
+
   if (!currentChat) {
     return (
       <div className={styles.emptyChatArea}>
@@ -883,6 +910,19 @@ export default function ChatArea() {
           <span className={styles.subtitle}>
             {currentChat.type === 'group' ? 'Group' : 'Direct Message'}
           </span>
+        </div>
+        
+        {/* Add search button in header */}
+        <div className={styles.actions}>
+          <button
+            className={styles.actionButton}
+            onClick={() => setShowSearchPanel(true)}
+            title="Search messages"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -1123,6 +1163,14 @@ export default function ChatArea() {
         accept={ALLOWED_FILE_TYPES.join(',')}
       />
       </form>
+
+      {/* Add MessageSearch component */}
+      {showSearchPanel && (
+        <MessageSearch 
+          onMessageSelect={scrollToMessage}
+          onClose={() => setShowSearchPanel(false)} 
+        />
+      )}
     </div>
   );
 }

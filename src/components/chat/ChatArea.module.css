@@ -1577,3 +1577,20 @@
   text-overflow: ellipsis;
   line-height: 1.4;
 }
+
+/* Add highlight animation for searched messages */
+@keyframes highlightMessage {
+  0% {
+    background-color: rgba(99, 102, 241, 0.1);
+  }
+  50% {
+    background-color: rgba(99, 102, 241, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.highlightMessage {
+  animation: highlightMessage 2s ease-out;
+}
