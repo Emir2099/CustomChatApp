@@ -13,7 +13,8 @@ const ALLOWED_FILE_TYPES = [
   'image/jpeg', 'image/png', 'image/gif', 'image/webp', 
   'application/pdf', 'text/plain',
   'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'audio/webm', 'audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg'
 ];
 
 // Helper function to check if objects are deeply equal
@@ -1141,6 +1142,7 @@ export function ChatProvider({ children }) {
   // Get file type category
   const getFileCategory = (mimeType) => {
     if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('audio/')) return 'audio';
     if (mimeType === 'application/pdf') return 'pdf';
     if (mimeType.includes('word')) return 'document';
     if (mimeType.includes('excel') || mimeType.includes('sheet')) return 'spreadsheet';
@@ -1221,6 +1223,94 @@ export function ChatProvider({ children }) {
     };
   }, [currentChat?.id, user?.uid]);
 
+  // Send voice message
+  const sendVoiceMessage = useCallback(async (audioBlob, duration) => {
+    if (!currentChat?.id || !user || !audioBlob) return null;
+    
+    // Check file size
+    if (audioBlob.size > FILE_SIZE_LIMIT) {
+      throw new Error(`File size exceeds ${FILE_SIZE_LIMIT / (1024 * 1024)}MB limit`);
+    }
+
+    // Generate a unique ID for this upload
+    const uploadId = Math.random().toString(36).substring(2, 15);
+
+    try {
+      // Add to uploads tracking
+      setFileUploads(prev => ({
+        ...prev,
+        [uploadId]: { progress: 0, filename: 'Voice message' }
+      }));
+      
+      // Convert audio blob to base64
+      const base64 = await fileToBase64(audioBlob);
+      
+      // Update progress to simulate upload
+      for (let i = 10; i <= 90; i += 10) {
+        setFileUploads(prev => ({
+          ...prev,
+          [uploadId]: { ...prev[uploadId], progress: i }
+        }));
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // Create the message with voice data
+      const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
+      const message = {
+        fileData: base64,
+        fileType: audioBlob.type,
+        fileSize: audioBlob.size,
+        fileCategory: 'audio',
+        duration: duration, // Duration in seconds
+        sender: user.uid,
+        senderName: user.displayName || user.email,
+        timestamp: serverTimestamp(),
+        type: 'voice'
+      };
+
+      await set(messageRef, message);
+      
+      // Complete progress
+      setFileUploads(prev => ({
+        ...prev,
+        [uploadId]: { ...prev[uploadId], progress: 100 }
+      }));
+      
+      // Update chat info
+      const updates = {};
+      updates[`chats/${currentChat.id}/info/lastMessage`] = `${user.displayName || 'User'} sent a voice message`;
+      updates[`chats/${currentChat.id}/info/lastMessageTime`] = serverTimestamp();
+      updates[`chats/${currentChat.id}/info/lastMessageSender`] = user.uid;
+      updates[`chats/${currentChat.id}/info/lastMessageSenderName`] = user.displayName || user.email;
+      
+      // Update sender's lastRead
+      updates[`users/${user.uid}/chats/${currentChat.id}/lastRead`] = serverTimestamp();
+      
+      await update(ref(db), updates);
+      
+      // Clear upload from state after a delay
+      setTimeout(() => {
+        setFileUploads(prev => {
+          const newState = { ...prev };
+          delete newState[uploadId];
+          return newState;
+        });
+      }, 2000);
+      
+      return message;
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      
+      // Update uploads tracking with error
+      setFileUploads(prev => ({
+        ...prev,
+        [uploadId]: { ...prev[uploadId], error: error.message }
+      }));
+      
+      throw error;
+    }
+  }, [currentChat, user, fileToBase64]);
+
   // Provide context with all memoized values and functions
   const contextValue = {
     currentChat,
@@ -1229,6 +1319,7 @@ export function ChatProvider({ children }) {
     messages,
     sendMessage,
     sendFileMessage,
+    sendVoiceMessage,
     fileUploads,
     createGroup,
     createPrivateChat,

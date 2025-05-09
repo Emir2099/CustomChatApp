@@ -6,6 +6,8 @@ import React from 'react';
 import ChatAreaSkeleton from './ChatAreaSkeleton';
 import MessageReactions from './MessageReactions';
 import MessageSearch from './MessageSearch';
+import VoiceRecorder from './VoiceRecorder';
+import AudioPlayer from './AudioPlayer';
 
 export default function ChatArea() {
   const { 
@@ -13,6 +15,7 @@ export default function ChatArea() {
     messages, 
     sendMessage, 
     sendFileMessage, 
+    sendVoiceMessage,
     fileUploads,
     handleVote, 
     markChatAsRead,
@@ -30,6 +33,7 @@ export default function ChatArea() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [reachedTop, setReachedTop] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -852,6 +856,89 @@ export default function ChatArea() {
     }, 2000);
   };
 
+  // Function to handle sending a voice message
+  const handleSendVoice = async (audioBlob, duration) => {
+    if (!currentChat?.id || !user) return;
+    
+    try {
+      // Set flag to prevent scroll button from appearing
+      recentlySentMessageRef.current = true;
+      
+      // Mark messages as read
+      markChatAsRead(currentChat.id);
+      hasUnreadMessagesRef.current = false;
+      
+      // Clear recording UI
+      setShowVoiceRecorder(false);
+      
+      // Send the voice message
+      await sendVoiceMessage(audioBlob, duration);
+      
+      // Scroll to bottom after sending
+      userManuallyScrolledRef.current = false;
+      isScrollingToBottomRef.current = true;
+      
+      // Hide button during send
+      setShowScrollButton(false);
+      setButtonFading(false);
+      
+      // Scroll to bottom
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (messageListRef.current) {
+            messageListRef.current.scrollTo({
+              top: messageListRef.current.scrollHeight,
+              behavior: 'smooth'
+            });
+            
+            // Reset lock after scroll
+            setTimeout(() => {
+              isScrollingToBottomRef.current = false;
+              isAtBottomRef.current = true;
+              
+              // Double check button is hidden
+              if (showScrollButton) {
+                setShowScrollButton(false);
+                setButtonFading(false);
+              }
+            }, 700);
+          }
+        }, 150);
+      });
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+    }
+  };
+  
+  // Function to handle cancelling voice recording
+  const handleCancelVoice = () => {
+    setShowVoiceRecorder(false);
+  };
+
+  // Add voice message rendering
+  const renderVoiceMessage = (message) => {
+    return (
+      <div className={styles.voiceMessage}>
+        <div className={styles.voiceMessageInfo}>
+          <div className={styles.voiceIcon}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
+              <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z" />
+            </svg>
+          </div>
+          <div className={styles.voiceDuration}>
+            {Math.floor(message.duration / 60)}:{(message.duration % 60).toString().padStart(2, '0')}
+          </div>
+        </div>
+        <AudioPlayer 
+          audioUrl={message.fileData}
+          duration={message.duration}
+          isSent={message.sender === user?.uid}
+        />
+      </div>
+    );
+  };
+
   if (!currentChat) {
     return (
       <div className={styles.emptyChatArea}>
@@ -1083,6 +1170,17 @@ export default function ChatArea() {
                     </div>
                   </>
                 )}
+                {message.type === 'voice' && (
+                  <>
+                    {message.sender !== user?.uid && (
+                      <div className={styles.sender}>{message.senderName}</div>
+                    )}
+                    {renderVoiceMessage(message)}
+                    <div className={styles.timestamp}>
+                      {formatTime(message.timestamp)}
+                    </div>
+                  </>
+                )}
               </div>
             </React.Fragment>
           ))
@@ -1130,38 +1228,58 @@ export default function ChatArea() {
           </div>
         )}
         <div className={styles.inputContainer}>
-        <input
-          type="text"
-          value={newMessage}
-          onChange={handleMessageChange}
-          placeholder="Type a message..."
-          className={styles.messageInput}
-        />
-        <button 
-          type="button" 
-          className={styles.attachButton}
-          onClick={handleFileSelect}
-          title="Attach file"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
-          </svg>
-        </button>
-        <button type="submit" className={styles.sendButton} title="Send message">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-        </svg>
-      </button>
-      </div>
+          {showVoiceRecorder ? (
+            <VoiceRecorder 
+              onSend={handleSendVoice}
+              onCancel={handleCancelVoice}
+            />
+          ) : (
+            <>
+              <input
+                type="text"
+                value={newMessage}
+                onChange={handleMessageChange}
+                placeholder="Type a message..."
+                className={styles.messageInput}
+              />
+              <button 
+                type="button" 
+                className={styles.attachButton}
+                onClick={handleFileSelect}
+                title="Attach file"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                </svg>
+              </button>
+              <button 
+                type="button" 
+                className={styles.attachButton}
+                onClick={() => setShowVoiceRecorder(true)}
+                title="Record voice message"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
+                  <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                </svg>
+              </button>
+              <button type="submit" className={styles.sendButton} title="Send message">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
 
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        style={{ display: 'none' }}
-        accept={ALLOWED_FILE_TYPES.join(',')}
-      />
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+          accept={ALLOWED_FILE_TYPES.join(',')}
+        />
       </form>
 
       {/* Add MessageSearch component */}
