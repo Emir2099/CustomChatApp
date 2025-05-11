@@ -856,63 +856,40 @@ export default function ChatArea() {
     }, 2000);
   };
 
-  // Function to handle sending a voice message
-  const handleSendVoice = async (audioBlob, duration) => {
-    if (!currentChat?.id || !user) return;
-    
-    try {
-      // Set flag to prevent scroll button from appearing
-      recentlySentMessageRef.current = true;
-      
-      // Mark messages as read
-      markChatAsRead(currentChat.id);
-      hasUnreadMessagesRef.current = false;
-      
-      // Clear recording UI
-      setShowVoiceRecorder(false);
-      
-      // Send the voice message
-      await sendVoiceMessage(audioBlob, duration);
-      
-      // Scroll to bottom after sending
-      userManuallyScrolledRef.current = false;
-      isScrollingToBottomRef.current = true;
-      
-      // Hide button during send
-      setShowScrollButton(false);
-      setButtonFading(false);
-      
-      // Scroll to bottom
-      requestAnimationFrame(() => {
+  // Toggle voice recorder display
+  const toggleVoiceRecorder = () => {
+    // Use setTimeout to ensure smooth transition
+    if (!showVoiceRecorder) {
+      setShowVoiceRecorder(true);
+    } else {
+      // If already showing, wait for transition to finish
+      const fadeOut = document.querySelector(`.${styles.recordingControls}`);
+      if (fadeOut) {
+        fadeOut.style.opacity = '0';
+        fadeOut.style.transform = 'scale(0.95)';
+        
         setTimeout(() => {
-          if (messageListRef.current) {
-            messageListRef.current.scrollTo({
-              top: messageListRef.current.scrollHeight,
-              behavior: 'smooth'
-            });
-            
-            // Reset lock after scroll
-            setTimeout(() => {
-              isScrollingToBottomRef.current = false;
-              isAtBottomRef.current = true;
-              
-              // Double check button is hidden
-              if (showScrollButton) {
-                setShowScrollButton(false);
-                setButtonFading(false);
-              }
-            }, 700);
-          }
-        }, 150);
-      });
-    } catch (error) {
-      console.error('Error sending voice message:', error);
+          setShowVoiceRecorder(false);
+        }, 300);
+      } else {
+        setShowVoiceRecorder(false);
+      }
     }
   };
-  
+
   // Function to handle cancelling voice recording
   const handleCancelVoice = () => {
-    setShowVoiceRecorder(false);
+    const fadeOut = document.querySelector(`.${styles.recordingControls}`);
+    if (fadeOut) {
+      fadeOut.style.opacity = '0';
+      fadeOut.style.transform = 'scale(0.95)';
+      
+      setTimeout(() => {
+        setShowVoiceRecorder(false);
+      }, 300);
+    } else {
+      setShowVoiceRecorder(false);
+    }
   };
 
   // Add voice message rendering
@@ -937,6 +914,106 @@ export default function ChatArea() {
         />
       </div>
     );
+  };
+
+  // Function to handle sending a voice message
+  const handleSendVoice = async (audioBlob, duration) => {
+    if (!currentChat?.id || !user) return;
+    
+    try {
+      // Set flag to prevent scroll button from appearing
+      recentlySentMessageRef.current = true;
+      
+      // Mark messages as read
+      markChatAsRead(currentChat.id);
+      hasUnreadMessagesRef.current = false;
+      
+      // Clear recording UI with smooth transition
+      const fadeOut = document.querySelector(`.${styles.recordingControls}`);
+      if (fadeOut) {
+        fadeOut.style.opacity = '0';
+        fadeOut.style.transform = 'scale(0.95)';
+        
+        setTimeout(() => {
+          setShowVoiceRecorder(false);
+          
+          // After UI is hidden, send the message
+          sendVoiceMessage(audioBlob, duration).then(() => {
+            // Scroll to bottom after sending
+            userManuallyScrolledRef.current = false;
+            isScrollingToBottomRef.current = true;
+            
+            // Hide button during send
+            setShowScrollButton(false);
+            setButtonFading(false);
+            
+            // Scroll to bottom
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                if (messageListRef.current) {
+                  messageListRef.current.scrollTo({
+                    top: messageListRef.current.scrollHeight,
+                    behavior: 'smooth'
+                  });
+                  
+                  // Reset lock after scroll
+                  setTimeout(() => {
+                    isScrollingToBottomRef.current = false;
+                    isAtBottomRef.current = true;
+                    
+                    // Double check button is hidden
+                    if (showScrollButton) {
+                      setShowScrollButton(false);
+                      setButtonFading(false);
+                    }
+                  }, 700);
+                }
+              }, 150);
+            });
+          });
+        }, 300);
+      } else {
+        // If no transition needed, just send directly
+        setShowVoiceRecorder(false);
+        
+        // Send the voice message
+        await sendVoiceMessage(audioBlob, duration);
+        
+        // Scroll to bottom after sending
+        userManuallyScrolledRef.current = false;
+        isScrollingToBottomRef.current = true;
+        
+        // Hide button during send
+        setShowScrollButton(false);
+        setButtonFading(false);
+        
+        // Scroll to bottom
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (messageListRef.current) {
+              messageListRef.current.scrollTo({
+                top: messageListRef.current.scrollHeight,
+                behavior: 'smooth'
+              });
+              
+              // Reset lock after scroll
+              setTimeout(() => {
+                isScrollingToBottomRef.current = false;
+                isAtBottomRef.current = true;
+                
+                // Double check button is hidden
+                if (showScrollButton) {
+                  setShowScrollButton(false);
+                  setButtonFading(false);
+                }
+              }, 700);
+            }
+          }, 150);
+        });
+      }
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+    }
   };
 
   if (!currentChat) {
@@ -1255,7 +1332,7 @@ export default function ChatArea() {
               <button 
                 type="button" 
                 className={styles.attachButton}
-                onClick={() => setShowVoiceRecorder(true)}
+                onClick={toggleVoiceRecorder}
                 title="Record voice message"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor">

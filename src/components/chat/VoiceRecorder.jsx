@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import styles from './ChatArea.module.css';
 
 const VoiceRecorder = ({ onSend, onCancel }) => {
-  const [isRecording, setIsRecording] = useState(false);
+  const [recordingState, setRecordingState] = useState('idle'); // idle, recording, paused
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -13,16 +13,15 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const streamRef = useRef(null);
+  const waveformRef = useRef(null);
   
   // Check browser support on mount
   useEffect(() => {
-    // Check if MediaRecorder is available
     if (!window.MediaRecorder) {
       setUnsupported(true);
       return;
     }
     
-    // Check if getUserMedia is available
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setUnsupported(true);
     }
@@ -34,12 +33,20 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      
       stopMediaTracks();
     };
   }, []);
   
-  // Function to stop and clean up media tracks
+  // Animate waveform bars
+  useEffect(() => {
+    if (recordingState === 'recording' && waveformRef.current) {
+      const bars = waveformRef.current.children;
+      Array.from(bars).forEach((bar, index) => {
+        bar.style.animationDelay = `${index * 0.1}s`;
+      });
+    }
+  }, [recordingState]);
+  
   const stopMediaTracks = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       try {
@@ -49,8 +56,8 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
       }
     }
     
-    // Release microphone
-    if (streamRef.current) {
+    // Only release microphone if fully canceling (not when pausing)
+    if (streamRef.current && recordingState !== 'paused') {
       streamRef.current.getTracks().forEach(track => {
         try {
           track.stop();
@@ -62,15 +69,10 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
     }
   };
 
-  // Toggle recording on/off
-  const toggleRecording = async () => {
-    if (isRecording) {
-      // Stop recording
-      stopMediaTracks();
-      clearInterval(timerRef.current);
-      setIsRecording(false);
-    } else {
-      try {
+  const startRecording = async () => {
+    try {
+      // If resuming from pause, don't get new stream
+      if (recordingState !== 'paused') {
         // Stop any existing stream first
         stopMediaTracks();
         
@@ -95,7 +97,10 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
           audioBitsPerSecond: 128000 // 128 kbps
         });
         
-        audioChunksRef.current = [];
+        // Only clear chunks if starting a new recording
+        if (recordingState !== 'paused') {
+          audioChunksRef.current = [];
+        }
         
         mediaRecorderRef.current.ondataavailable = (e) => {
           if (e.data.size > 0) {
@@ -111,37 +116,92 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
         
         // Start recording
         mediaRecorderRef.current.start(1000); // Collect data every second
-        setIsRecording(true);
-        setRecordingTime(0);
+      } else {
+        // resuming from pause, restart recording on the same stream
+        const mimeType = getSupportedMimeType();
         
-        // Start timer
-        timerRef.current = setInterval(() => {
-          setRecordingTime(prev => {
-            // Auto-stop after 2 minutes (120 seconds)
-            if (prev >= 120) {
-              toggleRecording();
-              return prev;
-            }
-            return prev + 1;
+        if (streamRef.current) {
+          mediaRecorderRef.current = new MediaRecorder(streamRef.current, {
+            mimeType: mimeType,
+            audioBitsPerSecond: 128000
           });
-        }, 1000);
-      } catch (error) {
-        console.error('Error accessing microphone:', error);
-        setPermissionDenied(true);
-        stopMediaTracks();
+          
+          mediaRecorderRef.current.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              audioChunksRef.current.push(e.data);
+            }
+          };
+          
+          mediaRecorderRef.current.onstop = () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+            setAudioBlob(audioBlob);
+          };
+          
+          mediaRecorderRef.current.start(1000);
+        } else {
+          // If stream was released, start fresh
+          return startRecording();
+        }
       }
+      
+      setRecordingState('recording');
+      
+      // Start or resume timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          // Auto-stop after 2 minutes (120 seconds)
+          if (prev >= 120) {
+            pauseRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      setPermissionDenied(true);
+      stopMediaTracks();
+    }
+  };
+  
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      clearInterval(timerRef.current);
+      setRecordingState('paused');
+    }
+  };
+  
+  const handleRecordingAction = () => {
+    // Add small vibration for tactile feedback on mobile devices
+    if (window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(50);
+    }
+    
+    switch (recordingState) {
+      case 'idle':
+        startRecording();
+        break;
+      case 'recording':
+        pauseRecording();
+        break;
+      case 'paused':
+        startRecording();
+        break;
+      default:
+        break;
     }
   };
   
   // Get supported MIME type for audio recording
   const getSupportedMimeType = () => {
     const types = [
-      'audio/webm',          // Chrome, Edge
-      'audio/webm;codecs=opus', // More specific for Chrome
-      'audio/mp4',           // Safari (newer versions)
-      'audio/ogg;codecs=opus', // Firefox
-      'audio/wav',           // Fallback
-      ''                     // Browser default
+      'audio/webm',
+      'audio/webm;codecs=opus',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/wav',
+      ''
     ];
     
     for (const type of types) {
@@ -150,7 +210,7 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
       }
     }
     
-    return '';  // Use browser default
+    return '';
   };
   
   // Format seconds to mm:ss
@@ -160,19 +220,23 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
   
-  // Handle send button click
   const handleSend = () => {
     if (audioBlob) {
       onSend(audioBlob, recordingTime);
+      resetRecording();
     }
   };
   
-  // Handle cancel button click
   const handleCancel = () => {
+    resetRecording();
+    onCancel();
+  };
+  
+  const resetRecording = () => {
     setAudioBlob(null);
     setRecordingTime(0);
+    setRecordingState('idle');
     stopMediaTracks();
-    onCancel();
   };
   
   // Show if browser doesn't support audio recording
@@ -206,70 +270,95 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
     );
   }
   
-  // If we have recorded audio but not recording currently
-  if (audioBlob && !isRecording) {
-    return (
-      <div className={styles.recordingControls}>
-        <div className={styles.recordingIndicator}>
-          <div className={styles.recordingTime}>{formatTime(recordingTime)}</div>
-        </div>
-        <div className={styles.recordingActions}>
-          <button
-            className={styles.cancelRecordingButton}
-            onClick={handleCancel}
-            title="Cancel"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <button
-            className={styles.sendRecordingButton}
-            onClick={handleSend}
-            title="Send voice message"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M5 13l4 4L19 7" />
-            </svg>
-          </button>
+  return (
+    <div className={`${styles.recordingControls} ${recordingState !== 'idle' ? styles.activeRecording : ''}`}>
+      <div className={styles.recordingCenter}>
+        <div className={styles.recordingRow}>
+          <div className={styles.recordingTime}>
+            {formatTime(recordingTime)}
+          </div>
+          
+          <div className={styles.recordingButtonContainer}>
+            {recordingState === 'paused' && (
+              <div className={styles.recordingActions}>
+                <button
+                  className={styles.cancelRecordingButton}
+                  onClick={handleCancel}
+                  title="Cancel"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                    <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                
+                <button
+                  className={styles.sendRecordingButton}
+                  onClick={handleSend}
+                  title="Send voice message"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+            
+            {recordingState === 'idle' && (
+              <button
+                className={styles.exitRecordingButton}
+                onClick={onCancel}
+                title="Exit voice recording"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                  <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+            
+            <button
+              className={`${styles.recordButton} ${
+                recordingState === 'recording' ? styles.recording : 
+                recordingState === 'paused' ? styles.paused : ''
+              }`}
+              onClick={handleRecordingAction}
+              title={
+                recordingState === 'idle' ? "Start recording" :
+                recordingState === 'recording' ? "Pause recording" :
+                "Resume recording"
+              }
+            >
+              {recordingState === 'idle' && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
+                  <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                </svg>
+              )}
+              {recordingState === 'recording' && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 6h12v12H6z" />
+                </svg>
+              )}
+              {recordingState === 'paused' && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7L8 5z" />
+                </svg>
+              )}
+            </button>
+          </div>
+          
+          <div className={`${styles.audioWaveform} ${
+            recordingState === 'idle' ? styles.waveformIdle : 
+            recordingState === 'recording' ? styles.waveformRecording : 
+            styles.waveformPaused
+          }`} ref={waveformRef}>
+            <div className={styles.waveformBar}></div>
+            <div className={styles.waveformBar}></div>
+            <div className={styles.waveformBar}></div>
+            <div className={styles.waveformBar}></div>
+            <div className={styles.waveformBar}></div>
+          </div>
         </div>
       </div>
-    );
-  }
-  
-  return (
-    <div className={styles.recordingControls}>
-      {isRecording && (
-        <div className={styles.recordingIndicator}>
-          <span></span>
-          <div className={styles.recordingTime}>{formatTime(recordingTime)}</div>
-        </div>
-      )}
-      <button
-        className={`${styles.recordButton} ${isRecording ? styles.recording : ''}`}
-        onClick={toggleRecording}
-        title={isRecording ? "Stop recording" : "Start recording"}
-      >
-        {isRecording ? (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 6h12v12H6z" />
-          </svg>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
-            <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z" />
-          </svg>
-        )}
-      </button>
-      {isRecording && (
-        <div className={styles.audioWaveform}>
-          <div className={styles.waveformBar}></div>
-          <div className={styles.waveformBar}></div>
-          <div className={styles.waveformBar}></div>
-          <div className={styles.waveformBar}></div>
-          <div className={styles.waveformBar}></div>
-        </div>
-      )}
     </div>
   );
 };
