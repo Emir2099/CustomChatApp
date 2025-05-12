@@ -8,12 +8,14 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
   const [audioBlob, setAudioBlob] = useState(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [unsupported, setUnsupported] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const streamRef = useRef(null);
   const waveformRef = useRef(null);
+  const transitionTimerRef = useRef(null);
   
   // Check browser support on mount
   useEffect(() => {
@@ -32,6 +34,9 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
       }
       stopMediaTracks();
     };
@@ -71,6 +76,9 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
 
   const startRecording = async () => {
     try {
+      // Set a transitioning state to enable smooth animation
+      setIsTransitioning(true);
+      
       // If resuming from pause, don't get new stream
       if (recordingState !== 'paused') {
         // Stop any existing stream first
@@ -144,7 +152,11 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
         }
       }
       
-      setRecordingState('recording');
+      // Update state after a small delay for smooth transition
+      transitionTimerRef.current = setTimeout(() => {
+        setRecordingState('recording');
+        setIsTransitioning(false);
+      }, 150);
       
       // Start or resume timer
       timerRef.current = setInterval(() => {
@@ -161,18 +173,29 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
       console.error('Error accessing microphone:', error);
       setPermissionDenied(true);
       stopMediaTracks();
+      setIsTransitioning(false);
     }
   };
   
   const pauseRecording = () => {
+    setIsTransitioning(true);
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       clearInterval(timerRef.current);
-      setRecordingState('paused');
+      
+      // Add slight delay for smooth transition
+      transitionTimerRef.current = setTimeout(() => {
+        setRecordingState('paused');
+        setIsTransitioning(false);
+      }, 150);
     }
   };
   
   const handleRecordingAction = () => {
+    // Don't allow actions during transitions
+    if (isTransitioning) return;
+    
     // Add small vibration for tactile feedback on mobile devices
     if (window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate(50);
@@ -236,6 +259,7 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
     setAudioBlob(null);
     setRecordingTime(0);
     setRecordingState('idle');
+    setIsTransitioning(false);
     stopMediaTracks();
   };
   
@@ -244,7 +268,7 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
     return (
       <div className={styles.recordingControls}>
         <div style={{ color: '#ef4444' }}>
-          Your browser doesn't support voice recording.
+          Your browser doesn&apos;t support voice recording.
         </div>
       </div>
     );
@@ -271,7 +295,7 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
   }
   
   return (
-    <div className={`${styles.recordingControls} ${recordingState !== 'idle' ? styles.activeRecording : ''}`}>
+    <div className={`${styles.recordingControls} ${recordingState !== 'idle' ? styles.activeRecording : ''} ${isTransitioning ? styles.transitioning : ''}`}>
       <div className={styles.recordingCenter}>
         <div className={styles.recordingRow}>
           <div className={styles.recordingTime}>
@@ -319,8 +343,9 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
               className={`${styles.recordButton} ${
                 recordingState === 'recording' ? styles.recording : 
                 recordingState === 'paused' ? styles.paused : ''
-              }`}
+              } ${isTransitioning ? styles.transitioning : ''}`}
               onClick={handleRecordingAction}
+              disabled={isTransitioning}
               title={
                 recordingState === 'idle' ? "Start recording" :
                 recordingState === 'recording' ? "Pause recording" :
@@ -350,7 +375,7 @@ const VoiceRecorder = ({ onSend, onCancel }) => {
             recordingState === 'idle' ? styles.waveformIdle : 
             recordingState === 'recording' ? styles.waveformRecording : 
             styles.waveformPaused
-          }`} ref={waveformRef}>
+          } ${isTransitioning ? styles.waveformTransitioning : ''}`} ref={waveformRef}>
             <div className={styles.waveformBar}></div>
             <div className={styles.waveformBar}></div>
             <div className={styles.waveformBar}></div>
