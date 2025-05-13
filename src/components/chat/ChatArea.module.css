@@ -76,6 +76,7 @@
   flex-direction: column;
   max-width: 70%;
   padding-right: 32px;
+  padding-left: 40px;
   align-items: flex-start;
   position: relative;
 }
@@ -83,7 +84,7 @@
 .message.sent {
   margin-left: auto;
   align-items: flex-end;
-  padding-right: 0;
+  padding-right: 40px;
   padding-left: 32px;
 }
 
@@ -329,7 +330,7 @@
 
 .feature span {
   font-size: 14px;
-  font-weight: 500;
+  margin-top: 8px;
   color: #374151;
 }
 
@@ -2146,4 +2147,265 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* Edit and Delete Message Styles */
+.messageOptions {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 2;
+  left: 0px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+}
+
+/* For sent messages (user's own messages) */
+.message.sent .messageOptions {
+  left: auto;
+  right: 100%;
+  margin-right: 8px;
+}
+
+/* For received messages (from others) */
+.message.received .messageOptions,
+.message:not(.sent) .messageOptions {
+  left: auto;
+  right: auto;
+  left: 0;
+  margin-left: -36px;
+}
+
+/* Show message options on hover */
+.message:hover .messageOptions {
+  visibility: visible;
+  opacity: 1;
+}
+
+.messageOptionButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.message.sent .messageOptionButton {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.messageOptionButton:hover {
+  background: white;
+  transform: scale(1.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.message.sent .messageOptionButton:hover {
+  background: white;
+  color: #4f46e5;
+}
+
+.editError {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin: 8px auto;
+  max-width: 80%;
+  text-align: center;
+  position: sticky;
+  top: 10px;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.3s ease;
+}
+
+.message.editing .bubble {
+  display: none;
+}
+
+.editContainer {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  min-width: 200px;
+}
+
+.editInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+  min-height: 80px;
+  resize: none;
+  font-family: inherit;
+  outline: none;
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
+  gap: 8px;
+}
+
+.cancelEditButton,
+.saveEditButton {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelEditButton {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+}
+
+.saveEditButton {
+  background: #6366f1;
+  border: 1px solid #6366f1;
+  color: white;
+}
+
+.cancelEditButton:hover {
+  background: #f3f4f6;
+}
+
+.saveEditButton:hover {
+  background: #4f46e5;
+}
+
+.saveEditButton:disabled {
+  background: #c7d2fe;
+  border-color: #c7d2fe;
+  cursor: not-allowed;
+}
+
+.deleteConfirmation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.2s ease;
+}
+
+.deleteConfirmationContent {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.deleteConfirmationContent h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #111827;
+}
+
+.deleteConfirmationContent p {
+  margin: 0 0 20px 0;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.deleteConfirmationActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelDeleteButton,
+.confirmDeleteButton {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelDeleteButton {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+}
+
+.confirmDeleteButton {
+  background: #ef4444;
+  border: 1px solid #ef4444;
+  color: white;
+}
+
+.cancelDeleteButton:hover {
+  background: #f3f4f6;
+}
+
+.confirmDeleteButton:hover {
+  background: #dc2626;
+}
+
+.editedIndicator {
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.deletedMessage .bubble {
+  background: #f3f4f6;
+  opacity: 0.7;
+}
+
+.message.sent.deletedMessage .bubble {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+/* Styling for deleted messages */
+.deletedMessage {
+  opacity: 0.7;
+}
+
+.deletedMessage.sent {
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.deletedMessage.received {
+  align-items: flex-start;
+}
+
+.deletedMessageText {
+  font-style: italic;
+  color: #888;
 }

@@ -845,8 +845,6 @@ export function ChatProvider({ children }) {
   useEffect(() => {
     if (!user) return;
     
-    let isMounted = true;
-
     const fetchUsers = async () => {
       try {
         const usersRef = ref(db, 'users');
@@ -873,10 +871,6 @@ export function ChatProvider({ children }) {
     };
 
     fetchUsers();
-    
-    return () => {
-      isMounted = false;
-    };
   }, [user]);
 
   // Listen to current chat members
@@ -1311,6 +1305,171 @@ export function ChatProvider({ children }) {
     }
   }, [currentChat, user, fileToBase64]);
 
+  // Function to edit a message
+  const editMessage = useCallback(async (messageId, newContent) => {
+    if (!currentChat?.id || !user || !messageId) return;
+
+    try {
+      // Get the existing message
+      const messageRef = ref(db, `chats/${currentChat.id}/messages/${messageId}`);
+      const messageSnapshot = await get(messageRef);
+      
+      if (!messageSnapshot.exists()) {
+        throw new Error('Message not found');
+      }
+      
+      const message = messageSnapshot.val();
+      
+      // Check if current user is the sender
+      if (message.sender !== user.uid) {
+        throw new Error('You can only edit your own messages');
+      }
+      
+      // Always allow editing without timestamp check (temporary fix)
+      /*
+      // Check if it's within the edit time window
+      const messageTime = message.timestamp;
+      const currentTime = Date.now();
+      
+      // For new messages, timestamp might not be resolved yet
+      if (!messageTime) {
+        // Allow editing if timestamp is not available (message is new)
+      } 
+      // Firebase serverTimestamp objects need special handling
+      else if (typeof messageTime === 'object' && messageTime !== null) {
+        // If it has seconds property (Firestore timestamp format)
+        if (messageTime.seconds) {
+          const messageTimeMs = messageTime.seconds * 1000;
+          if (currentTime - messageTimeMs > MESSAGE_EDIT_WINDOW) {
+            throw new Error('Message can only be edited within 5 minutes of sending');
+          }
+        }
+        // If it's a pending serverTimestamp, it's a new message
+      } 
+      // Regular timestamp (number)
+      else if (typeof messageTime === 'number') {
+        if (currentTime - messageTime > MESSAGE_EDIT_WINDOW) {
+          throw new Error('Message can only be edited within 5 minutes of sending');
+        }
+      }
+      */
+      
+      // Update the message
+      const updates = {
+        content: newContent,
+        edited: true,
+        editedAt: serverTimestamp()
+      };
+      
+      await update(messageRef, updates);
+      
+      // If this was the last message in the chat, update the chat info
+      const chatInfoRef = ref(db, `chats/${currentChat.id}/info`);
+      const chatInfoSnapshot = await get(chatInfoRef);
+      
+      if (chatInfoSnapshot.exists()) {
+        const chatInfo = chatInfoSnapshot.val();
+        
+        if (chatInfo.lastMessageSender === user.uid && 
+            chatInfo.lastMessage === message.content) {
+          await update(chatInfoRef, {
+            lastMessage: newContent,
+            lastUpdated: serverTimestamp()
+          });
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error editing message:', error);
+      throw error;
+    }
+  }, [currentChat, user]);
+
+  // Function to delete a message
+  const deleteMessage = useCallback(async (messageId) => {
+    if (!currentChat?.id || !user || !messageId) return;
+
+    try {
+      // Get the existing message
+      const messageRef = ref(db, `chats/${currentChat.id}/messages/${messageId}`);
+      const messageSnapshot = await get(messageRef);
+      
+      if (!messageSnapshot.exists()) {
+        throw new Error('Message not found');
+      }
+      
+      const message = messageSnapshot.val();
+      
+      // Check if current user is the sender
+      if (message.sender !== user.uid) {
+        throw new Error('You can only delete your own messages');
+      }
+      
+      // Always allow deleting without timestamp check (temporary fix)
+      /*
+      // Check if it's within the edit time window
+      const messageTime = message.timestamp;
+      const currentTime = Date.now();
+      
+      // For new messages, timestamp might not be resolved yet
+      if (!messageTime) {
+        // Allow deletion if timestamp is not available (message is new)
+      } 
+      // Firebase serverTimestamp objects need special handling
+      else if (typeof messageTime === 'object' && messageTime !== null) {
+        // If it has seconds property (Firestore timestamp format)
+        if (messageTime.seconds) {
+          const messageTimeMs = messageTime.seconds * 1000;
+          if (currentTime - messageTimeMs > MESSAGE_EDIT_WINDOW) {
+            throw new Error('Message can only be deleted within 5 minutes of sending');
+          }
+        }
+        // If it's a pending serverTimestamp, it's a new message
+      } 
+      // Regular timestamp (number)
+      else if (typeof messageTime === 'number') {
+        if (currentTime - messageTime > MESSAGE_EDIT_WINDOW) {
+          throw new Error('Message can only be deleted within 5 minutes of sending');
+        }
+      }
+      */
+      
+      // Update the message as deleted instead of actually removing it
+      // This preserves the chat history but hides the content
+      const updates = {
+        content: "This message was deleted",
+        deleted: true,
+        deletedAt: serverTimestamp(),
+        // If it's a file message, remove the file data to save space
+        ...(message.type === 'file' ? { fileData: null } : {})
+      };
+      
+      await update(messageRef, updates);
+      
+      // If this was the last message in the chat, update the chat info
+      const chatInfoRef = ref(db, `chats/${currentChat.id}/info`);
+      const chatInfoSnapshot = await get(chatInfoRef);
+      
+      if (chatInfoSnapshot.exists()) {
+        const chatInfo = chatInfoSnapshot.val();
+        
+        if (chatInfo.lastMessageSender === user.uid && 
+            chatInfo.lastMessage === message.content) {
+          await update(chatInfoRef, {
+            lastMessage: "This message was deleted",
+            lastUpdated: serverTimestamp()
+          });
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      throw error;
+    }
+  }, [currentChat, user]);
+
   // Provide context with all memoized values and functions
   const contextValue = {
     currentChat,
@@ -1348,7 +1507,9 @@ export function ChatProvider({ children }) {
     hasMoreMessages,
     loading,
     chatsLoading,
-    allUsers
+    allUsers,
+    editMessage,
+    deleteMessage
   };
 
   return (
