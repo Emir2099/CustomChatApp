@@ -40,6 +40,8 @@ export default function ChatArea() {
   const [editingContent, setEditingContent] = useState('');
   const [editError, setEditError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  // Add reply message state
+  const [replyingTo, setReplyingTo] = useState(null);
   const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
   const editInputRef = useRef(null);
@@ -386,8 +388,11 @@ export default function ChatArea() {
     // Explicitly set isAtTop to false to prevent "load more" button from showing
     setIsAtTop(false);
     
-    // Send message first
-    sendMessage(message);
+    // Send message with reply information if replying to a message
+    sendMessage(message, replyingTo?.id || null);
+    
+    // Clear reply after sending
+    setReplyingTo(null);
     
     // Always mark messages as read when sending a message
     markChatAsRead(currentChat.id);
@@ -468,7 +473,10 @@ export default function ChatArea() {
       // Send the file and track progress
       await sendFileMessage(processedFile, () => {
         // Progress is tracked in the ChatContext
-      });
+      }, replyingTo?.id || null);
+      
+      // Clear reply after sending
+      setReplyingTo(null);
       
       // Mark as recently sent to prevent button from showing
       recentlySentMessageRef.current = true;
@@ -945,7 +953,10 @@ export default function ChatArea() {
           setShowVoiceRecorder(false);
           
           // After UI is hidden, send the message
-          sendVoiceMessage(audioBlob, duration).then(() => {
+          sendVoiceMessage(audioBlob, duration, replyingTo?.id || null).then(() => {
+            // Clear reply after sending
+            setReplyingTo(null);
+            
             // Scroll to bottom after sending
             userManuallyScrolledRef.current = false;
             isScrollingToBottomRef.current = true;
@@ -984,7 +995,7 @@ export default function ChatArea() {
         setShowVoiceRecorder(false);
         
         // Send the voice message
-        await sendVoiceMessage(audioBlob, duration);
+        await sendVoiceMessage(audioBlob, duration, replyingTo?.id || null);
         
         // Scroll to bottom after sending
         userManuallyScrolledRef.current = false;
@@ -1135,13 +1146,30 @@ export default function ChatArea() {
   };
 
   const renderMessageOptions = (message) => {
-    if (message.sender !== user?.uid || 
-        message.type === 'announcement' || 
+    if (message.type === 'announcement' || 
         message.type === 'poll' ||
         message.deleted) {
       return null;
     }
     
+    // For messages from other users, show only reply button
+    if (message.sender !== user?.uid) {
+      return (
+        <div className={styles.messageOptions}>
+          <button 
+            className={styles.messageOptionButton}
+            onClick={() => handleReply(message)}
+            title="Reply to message"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      );
+    }
+    
+    // For own messages, show edit, delete, and reply buttons
     return (
       <div className={styles.messageOptions}>
         <button 
@@ -1163,6 +1191,113 @@ export default function ChatArea() {
             <path d="M3 6h18" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M10 11v6M14 11v6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <button 
+          className={styles.messageOptionButton}
+          onClick={() => handleReply(message)}
+          title="Reply to message"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
+  // Add effect to clear reply state when changing chats
+  useEffect(() => {
+    setReplyingTo(null);
+  }, [currentChat?.id]);
+
+  // Add handle reply function
+  const handleReply = (message) => {
+    setReplyingTo(message);
+    // Focus the input field
+    setTimeout(() => {
+      const inputField = document.querySelector(`.${styles.messageInput}`);
+      if (inputField) {
+        inputField.focus();
+      }
+    }, 100);
+  };
+
+  // Add cancel reply function
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  // Function to scroll to replied message
+  const scrollToRepliedMessage = (messageId) => {
+    if (!messageId || !messageListRef.current) return;
+    
+    const messageElement = document.getElementById(`msg-${messageId}`);
+    if (!messageElement) return;
+    
+    messageElement.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'center'
+    });
+    
+    // Highlight the message briefly
+    messageElement.classList.add(styles.highlightMessage);
+    setTimeout(() => {
+      messageElement.classList.remove(styles.highlightMessage);
+    }, 2000);
+  };
+
+  // Add function to render reply indicator in messages
+  const renderReplyIndicator = (message) => {
+    if (!message.replyTo) return null;
+    
+    return (
+      <div 
+        className={styles.replyIndicator}
+        onClick={() => scrollToRepliedMessage(message.replyTo.id)}
+      >
+        <div className={styles.replyLine}></div>
+        <div className={styles.replyContent}>
+          <span className={styles.replyName}>
+            {message.replyTo.senderName}
+          </span>
+          <span className={styles.replyText}>
+            {message.replyTo.type === 'file' 
+              ? '📎 Attachment' 
+              : message.replyTo.type === 'voice' 
+                ? '🎤 Voice message' 
+                : message.replyTo.content}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // Add function to render reply preview when composing a message
+  const renderReplyPreview = () => {
+    if (!replyingTo) return null;
+    
+    return (
+      <div className={styles.replyPreview}>
+        <div className={styles.replyPreviewContent}>
+          <div className={styles.replyPreviewName}>
+            Replying to {replyingTo.senderName}
+          </div>
+          <div className={styles.replyPreviewText}>
+            {replyingTo.type === 'file' 
+              ? '📎 Attachment' 
+              : replyingTo.type === 'voice'
+                ? '🎤 Voice message'
+                : replyingTo.content}
+          </div>
+        </div>
+        <button 
+          className={styles.replyPreviewClose}
+          onClick={handleCancelReply}
+          title="Cancel reply"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
       </div>
@@ -1418,6 +1553,7 @@ export default function ChatArea() {
                           {message.sender !== user?.uid && (
                             <div className={styles.senderName}>{message.senderName}</div>
                           )}
+                          {renderReplyIndicator(message)}
                           {message.content}
                           <span className={styles.timestamp}>
                             {formatTime(message.timestamp)}
@@ -1445,6 +1581,17 @@ export default function ChatArea() {
                       >
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                        </svg>
+                      </button>
+                      
+                      {/* Add reply button that appears on hover */}
+                      <button 
+                        className={styles.replyButton}
+                        onClick={() => handleReply(message)}
+                        title="Reply to message"
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </button>
                     </div>
@@ -1537,6 +1684,7 @@ export default function ChatArea() {
             />
           ) : (
             <>
+              {renderReplyPreview()}
               <input
                 type="text"
                 value={newMessage}

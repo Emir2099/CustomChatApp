@@ -2409,3 +2409,165 @@
   font-style: italic;
   color: #888;
 }
+
+/* Reply styles */
+.replyIndicator {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  transition: opacity 0.2s;
+}
+
+.replyIndicator:hover {
+  opacity: 0.9;
+}
+
+.replyLine {
+  width: 2px;
+  height: 16px;
+  background-color: #6366f1;
+  margin-right: 8px;
+  border-radius: 1px;
+}
+
+.message.sent .replyLine {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.replyContent {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  max-width: calc(100% - 10px);
+  overflow: hidden;
+}
+
+.replyName {
+  font-weight: 600;
+  color: #6366f1;
+  margin-bottom: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message.sent .replyName {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.replyText {
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message.sent .replyText {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.replyPreview {
+  background-color: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.replyPreview:hover {
+  background-color: #f3f4f6;
+}
+
+.replyPreviewContent {
+  display: flex;
+  flex-direction: column;
+  margin-left: 12px;
+  border-left: 2px solid #6366f1;
+  padding-left: 8px;
+  flex: 1;
+}
+
+.replyPreviewName {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6366f1;
+  margin-bottom: 2px;
+}
+
+.replyPreviewText {
+  font-size: 13px;
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.replyPreviewClose {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.replyPreviewClose:hover {
+  color: #6b7280;
+}
+
+.replyPreviewClose svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Reply button styling */
+.replyButton {
+  position: absolute;
+  bottom: -8px;
+  left: -10px;
+  display: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: white;
+  color: #6366f1;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  z-index: 10;
+}
+
+/* Position for received messages (from others) */
+.message:not(.sent) .replyButton {
+  left: -10px;
+  right: auto;
+}
+
+/* Position for sent messages (from user) */
+.message.sent .replyButton {
+  right: -10px;
+  left: auto;
+}
+
+/* Show reply button on hover */
+.bubbleContainer:hover .replyButton {
+  display: flex;
+}
+
+.replyButton:hover {
+  transform: scale(1.1);
+  background-color: #6366f1;
+  color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}

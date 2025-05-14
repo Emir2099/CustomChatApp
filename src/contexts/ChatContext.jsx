@@ -525,7 +525,7 @@ export function ChatProvider({ children }) {
   }, [currentChat?.id, user, markChatAsRead]);
 
   // Memoize the sendMessage function
-  const sendMessage = useCallback(async (content) => {
+  const sendMessage = useCallback(async (content, replyToMessageId = null) => {
     if (!currentChat?.id || !user) return;
 
     try {
@@ -536,6 +536,23 @@ export function ChatProvider({ children }) {
         senderName: user.displayName || user.email,
         timestamp: serverTimestamp(),
       };
+      
+      // Add reply information if replying to a message
+      if (replyToMessageId) {
+        // Get the message being replied to
+        const repliedMessageRef = ref(db, `chats/${currentChat.id}/messages/${replyToMessageId}`);
+        const repliedMessageSnapshot = await get(repliedMessageRef);
+        
+        if (repliedMessageSnapshot.exists()) {
+          const repliedMessage = repliedMessageSnapshot.val();
+          message.replyTo = {
+            id: replyToMessageId,
+            content: repliedMessage.content?.substring(0, 100) || 'Attachment',
+            senderName: repliedMessage.senderName,
+            type: repliedMessage.type || 'text'
+          };
+        }
+      }
 
       await set(messageRef, message);
       
@@ -556,7 +573,7 @@ export function ChatProvider({ children }) {
   }, [currentChat, user]);
 
   // Send a file message with optimizations
-  const sendFileMessage = useCallback(async (file, progressCallback) => {
+  const sendFileMessage = useCallback(async (file, progressCallback, replyToMessageId = null) => {
     if (!currentChat?.id || !user || !file) return null;
     
     // Check file size
@@ -608,6 +625,23 @@ export function ChatProvider({ children }) {
         timestamp: serverTimestamp(),
         type: 'file'
       };
+      
+      // Add reply information if replying to a message
+      if (replyToMessageId) {
+        // Get the message being replied to
+        const repliedMessageRef = ref(db, `chats/${currentChat.id}/messages/${replyToMessageId}`);
+        const repliedMessageSnapshot = await get(repliedMessageRef);
+        
+        if (repliedMessageSnapshot.exists()) {
+          const repliedMessage = repliedMessageSnapshot.val();
+          message.replyTo = {
+            id: replyToMessageId,
+            content: repliedMessage.content?.substring(0, 100) || 'Attachment',
+            senderName: repliedMessage.senderName,
+            type: repliedMessage.type || 'text'
+          };
+        }
+      }
 
       await set(messageRef, message);
       
@@ -1218,7 +1252,7 @@ export function ChatProvider({ children }) {
   }, [currentChat?.id, user?.uid]);
 
   // Send voice message
-  const sendVoiceMessage = useCallback(async (audioBlob, duration) => {
+  const sendVoiceMessage = useCallback(async (audioBlob, duration, replyToMessageId = null) => {
     if (!currentChat?.id || !user || !audioBlob) return null;
     
     // Check file size
@@ -1261,6 +1295,23 @@ export function ChatProvider({ children }) {
         timestamp: serverTimestamp(),
         type: 'voice'
       };
+      
+      // Add reply information if replying to a message
+      if (replyToMessageId) {
+        // Get the message being replied to
+        const repliedMessageRef = ref(db, `chats/${currentChat.id}/messages/${replyToMessageId}`);
+        const repliedMessageSnapshot = await get(repliedMessageRef);
+        
+        if (repliedMessageSnapshot.exists()) {
+          const repliedMessage = repliedMessageSnapshot.val();
+          message.replyTo = {
+            id: replyToMessageId,
+            content: repliedMessage.content?.substring(0, 100) || 'Attachment',
+            senderName: repliedMessage.senderName,
+            type: repliedMessage.type || 'text'
+          };
+        }
+      }
 
       await set(messageRef, message);
       
