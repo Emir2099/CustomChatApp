@@ -8,6 +8,7 @@ import MessageReactions from './MessageReactions';
 import MessageSearch from './MessageSearch';
 import VoiceRecorder from './VoiceRecorder';
 import AudioPlayer from './AudioPlayer';
+import LogViewer from './LogViewer';
 
 export default function ChatArea() {
   const { 
@@ -28,7 +29,8 @@ export default function ChatArea() {
     loading,
     editMessage,
     deleteMessage,
-    setMessages
+    setMessages,
+    isCurrentUserAdmin
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
@@ -61,6 +63,7 @@ export default function ChatArea() {
   const currentChatIdRef = useRef(null);
   // Add search panel state
   const [showSearchPanel, setShowSearchPanel] = useState(false);
+  const [showLogViewer, setShowLogViewer] = useState(false);
 
   // Force check if scrolling is actually needed
   const checkIfScrollNeeded = () => {
@@ -893,7 +896,7 @@ export default function ChatArea() {
     return sortedMessages;
   };
 
-  // Add scrollToMessage function
+  // scrollToMessage function
   const scrollToMessage = (message) => {
     if (!message || !message.id || !messageListRef.current) return;
     
@@ -953,7 +956,7 @@ export default function ChatArea() {
     }
   };
 
-  // Add voice message rendering
+  // voice message rendering
   const renderVoiceMessage = (message) => {
     return (
       <div className={styles.voiceMessage}>
@@ -1243,12 +1246,12 @@ export default function ChatArea() {
     );
   };
 
-  // Add effect to clear reply state when changing chats
+  // effect to clear reply state when changing chats
   useEffect(() => {
     setReplyingTo(null);
   }, [currentChat?.id]);
 
-  // Add handle reply function
+  // handle reply function
   const handleReply = (message) => {
     setReplyingTo(message);
     // Focus the input field
@@ -1260,7 +1263,7 @@ export default function ChatArea() {
     }, 100);
   };
 
-  // Add cancel reply function
+  // cancel reply function
   const handleCancelReply = () => {
     setReplyingTo(null);
   };
@@ -1284,7 +1287,7 @@ export default function ChatArea() {
     }, 2000);
   };
 
-  // Add function to render reply indicator in messages
+  // function to render reply indicator in messages
   const renderReplyIndicator = (message) => {
     if (!message.replyTo) return null;
     
@@ -1310,7 +1313,7 @@ export default function ChatArea() {
     );
   };
 
-  // Add function to render reply preview when composing a message
+  // function to render reply preview when composing a message
   const renderReplyPreview = () => {
     if (!replyingTo) return null;
     
@@ -1401,8 +1404,20 @@ export default function ChatArea() {
           </span>
         </div>
         
-        {/* Add search button in header */}
+        {/* search button in header */}
         <div className={styles.actions}>
+          {/* Only show View Logs button for group admins */}
+          {currentChat.type === 'group' && isCurrentUserAdmin() && (
+            <button
+              className={styles.actionButton}
+              onClick={() => setShowLogViewer(true)}
+              title="View message logs"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </button>
+          )}
           <button
             className={styles.actionButton}
             onClick={() => setShowSearchPanel(true)}
@@ -1780,6 +1795,12 @@ export default function ChatArea() {
         <MessageSearch 
           onMessageSelect={scrollToMessage}
           onClose={() => setShowSearchPanel(false)} 
+        />
+      )}
+
+      {showLogViewer && (
+        <LogViewer 
+          onClose={() => setShowLogViewer(false)} 
         />
       )}
     </div>
