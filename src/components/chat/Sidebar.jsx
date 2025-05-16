@@ -62,7 +62,7 @@ const Sidebar = () => {
   }, [chats]);
 
   const filteredChats = chats.filter(chat => 
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+    chat && chat.name && chat.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
