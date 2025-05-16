@@ -27,7 +27,8 @@ export default function ChatArea() {
     hasMoreMessages,
     loading,
     editMessage,
-    deleteMessage
+    deleteMessage,
+    setMessages
   } = useChat();
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
@@ -387,6 +388,28 @@ export default function ChatArea() {
     
     // Explicitly set isAtTop to false to prevent "load more" button from showing
     setIsAtTop(false);
+    
+    // Create temporary message ID
+    const tempId = `temp-${Date.now()}`;
+    
+    // Add optimistic message to prevent flickering
+    const optimisticMessage = {
+      id: tempId,
+      content: message,
+      sender: user.uid,
+      senderName: user.displayName || user.email,
+      timestamp: Date.now(),
+      isPending: true, // Flag to identify optimistic messages
+      replyTo: replyingTo ? {
+        id: replyingTo.id,
+        content: replyingTo.content?.substring(0, 100) || 'Attachment',
+        senderName: replyingTo.senderName,
+        type: replyingTo.type || 'text'
+      } : null
+    };
+    
+    // Add message optimistically to UI
+    setMessages(prev => [...prev, optimisticMessage].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)));
     
     // Send message with reply information if replying to a message
     sendMessage(message, replyingTo?.id || null);
@@ -831,7 +854,30 @@ export default function ChatArea() {
     // Add all current messages to the map
     messages.forEach(message => {
       if (message.id) {
-        messageMap.set(message.id, message);
+        // For messages with the same ID, prefer the non-optimistic version (from firebase)
+        const existing = messageMap.get(message.id);
+        if (!existing || (existing.isPending && !message.isPending)) {
+          messageMap.set(message.id, message);
+        }
+        
+        // Filter out optimistic messages once their real versions arrive
+        if (message.id.startsWith('temp-') && message.isPending) {
+          // Check if we have a non-optimistic message with the same content and sender
+          let hasRealMessage = false;
+          messages.forEach(m => {
+            if (!m.id.startsWith('temp-') && !m.isPending && 
+                m.content === message.content && 
+                m.sender === message.sender &&
+                Math.abs((m.timestamp || 0) - (message.timestamp || 0)) < 60000) {
+              hasRealMessage = true;
+            }
+          });
+          
+          // If we have a real message that matches, don't include the optimistic one
+          if (hasRealMessage) {
+            messageMap.delete(message.id);
+          }
+        }
       }
     });
     
@@ -1510,9 +1556,7 @@ export default function ChatArea() {
                 )}
                 {!message.type && !message.deleted && (
                   <React.Fragment>
-                    <div 
-                      className={styles.bubbleContainer}
-                    >
+                    <div className={styles.bubbleContainer}>
                       {editingMessage?.id === message.id ? (
                         <div className={styles.editContainer}>
                           <textarea
@@ -1540,57 +1584,61 @@ export default function ChatArea() {
                           </div>
                         </div>
                       ) : (
-                        <div className={styles.bubble}>
+                        <div className={`${styles.bubble} ${message.isPending ? styles.pendingMessage : ''}`}>
                           {message.sender !== user?.uid && (
                             <div className={styles.senderName}>{message.senderName}</div>
                           )}
                           {renderReplyIndicator(message)}
                           {message.content}
                           <span className={styles.timestamp}>
-                            {formatTime(message.timestamp)}
+                            {message.isPending ? 'Sending...' : formatTime(message.timestamp)}
                             {message.edited && (
                               <span className={styles.editedIndicator}> (edited)</span>
                             )}
                           </span>
                           
-                          {renderMessageOptions(message)}
-                          
-                          {/* reaction button that appears on hover */}
-                          <button 
-                            className={styles.addReactionHoverButton}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Find the MessageReactions component and trigger its panel
-                              const reactionsElem = document.querySelector(`[data-message-id="${message.id}"]`);
-                              if (reactionsElem) {
-                                const event = new CustomEvent('showReactionPanel');
-                                reactionsElem.dispatchEvent(event);
-                              }
-                            }}
-                            title="Add reaction"
-                          >
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
-                            </svg>
-                          </button>
-                          
-                          {/* reply button that appears on hover */}
-                          <button 
-                            className={styles.replyButton}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReply(message);
-                            }}
-                            title="Reply to message"
-                          >
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </button>
+                          {!message.isPending && renderMessageOptions(message)}
                         </div>
                       )}
+                      
+                      {/* reaction button that appears on hover */}
+                      {!message.isPending && (
+                        <button 
+                          className={styles.addReactionHoverButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Find the MessageReactions component and trigger its panel
+                            const reactionsElem = document.querySelector(`[data-message-id="${message.id}"]`);
+                            if (reactionsElem) {
+                              const event = new CustomEvent('showReactionPanel');
+                              reactionsElem.dispatchEvent(event);
+                            }
+                          }}
+                          title="Add reaction"
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                          </svg>
+                        </button>
+                      )}
+                      
+                      {/* reply button that appears on hover */}
+                      {!message.isPending && (
+                        <button 
+                          className={styles.replyButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReply(message);
+                          }}
+                          title="Reply to message"
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
                     </div>
-                    <MessageReactions message={message} />
+                    {!message.isPending && <MessageReactions message={message} />}
                   </React.Fragment>
                 )}
                 {message.deleted && (

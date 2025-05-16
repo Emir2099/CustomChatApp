@@ -1527,6 +1527,7 @@ export function ChatProvider({ children }) {
     setCurrentChat,
     chats,
     messages,
+    setMessages,
     sendMessage,
     sendFileMessage,
     sendVoiceMessage,

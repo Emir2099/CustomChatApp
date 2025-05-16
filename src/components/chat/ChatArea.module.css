@@ -2571,3 +2571,21 @@
   color: white;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
+
+
+.pendingMessage {
+  opacity: 0.85;
+  position: relative;
+}
+
+.pendingMessage::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: rgba(99, 102, 241, 0.7);
+  animation: pulse 1.5s infinite;
+}
