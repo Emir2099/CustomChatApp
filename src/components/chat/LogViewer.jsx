@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import styles from './LogViewer.module.css';
+import PropTypes from 'prop-types';
 
 export default function LogViewer({ onClose }) {
   const { logs, fetchChatLogs, currentChat } = useChat();
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, edit, delete
+  const [isClosing, setIsClosing] = useState(false);
   
   useEffect(() => {
     setLoading(true);
@@ -13,6 +15,13 @@ export default function LogViewer({ onClose }) {
       setLoading(false);
     });
   }, [fetchChatLogs]);
+  
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 280); // Slightly less than the animation duration to avoid flickering
+  };
   
   const filteredLogs = logs.filter(log => {
     if (filter === 'all') return true;
@@ -46,14 +55,15 @@ export default function LogViewer({ onClose }) {
   };
   
   return (
-    <div className={styles.logViewer}>
+    <div className={`${styles.logViewer} ${isClosing ? styles.closing : ''}`}>
       <div className={styles.header}>
         <h2>Message Log</h2>
         <p className={styles.subtitle}>{currentChat?.name}</p>
-        <button className={styles.closeButton} onClick={onClose}>
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+        <button className={styles.closeButton} onClick={handleClose}>
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="3">
             <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
+          {/* <span className={styles.closeText}></span> */}
         </button>
       </div>
       
@@ -144,4 +154,8 @@ export default function LogViewer({ onClose }) {
       </div>
     </div>
   );
-} 
+}
+
+LogViewer.propTypes = {
+  onClose: PropTypes.func.isRequired
+}; 

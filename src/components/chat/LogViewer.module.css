@@ -13,12 +13,25 @@
   border-left: 1px solid #e5e7eb;
 }
 
+.logViewer.closing {
+  animation: slideOut 0.3s ease-in-out forwards;
+}
+
 @keyframes slideIn {
   from {
     transform: translateX(100%);
   }
   to {
     transform: translateX(0);
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
   }
 }
 
@@ -47,27 +60,32 @@
   position: absolute;
   top: 14px;
   right: 14px;
-  background: transparent;
+  background-color: #ef4444;
   border: none;
   cursor: pointer;
-  width: 32px;
-  height: 32px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: #6b7280;
-  transition: background-color 0.2s, color 0.2s;
+  border-radius: 4px;
+  color: white;
+  transition: background-color 0.2s;
+  z-index: 10;
+  font-weight: 500;
+  font-size: 14px;
 }
 
 .closeButton:hover {
-  background-color: #f3f4f6;
-  color: #111827;
+  background-color: #dc2626;
 }
 
 .closeButton svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
+}
+
+.closeText {
+  display: inline-block;
 }
 
 .filterContainer {
