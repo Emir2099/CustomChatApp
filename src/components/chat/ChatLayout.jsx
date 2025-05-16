@@ -13,6 +13,8 @@ export default function ChatLayout() {
   const [showProfile, setShowProfile] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
   const iconInputRef = useRef(null);
   const { user } = useAuth();
   const { currentChat, createPoll, createAnnouncement, setCurrentChat } = useChat();
@@ -77,6 +79,26 @@ export default function ChatLayout() {
     setShowAnnouncementModal(false);
   };
 
+  const openPollModal = () => {
+    if (!currentChat) {
+      setValidationMessage("You need to be in a group to create a poll.");
+      setShowValidationDialog(true);
+      return;
+    }
+    setCurrentView('polls');
+    setShowPollModal(true);
+  };
+
+  const openAnnouncementModal = () => {
+    if (!currentChat) {
+      setValidationMessage("You need to be in a group to make an announcement.");
+      setShowValidationDialog(true);
+      return;
+    }
+    setCurrentView('announcements');
+    setShowAnnouncementModal(true);
+  };
+
   return (
     <>
       <div className={`${styles.layout} ${showProfile ? styles.blurred : ''}`}>
@@ -102,10 +124,7 @@ export default function ChatLayout() {
             </button>
             <button 
               className={currentView === 'announcements' ? styles.active : ''}
-              onClick={() => {
-                setCurrentView('announcements');
-                setShowAnnouncementModal(true);
-              }}
+              onClick={openAnnouncementModal}
             >
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path fill="currentColor" d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8 0h-4V4h4v2z"/>
@@ -113,10 +132,7 @@ export default function ChatLayout() {
             </button>
             <button 
               className={currentView === 'polls' ? styles.active : ''}
-              onClick={() => {
-                setCurrentView('polls');
-                setShowPollModal(true);
-              }}
+              onClick={openPollModal}
             >
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V18h14v-1.5c0-2.33-4.67-3.5-7-3.5z"/>
@@ -150,6 +166,31 @@ export default function ChatLayout() {
           currentUser={user}
         />
       </div>
+      
+      {/* Validation Dialog */}
+      {showValidationDialog && (
+        <div className={styles.modalOverlay} onClick={() => setShowValidationDialog(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>No Group Selected</h2>
+              <button className={styles.closeButton} onClick={() => setShowValidationDialog(false)}>×</button>
+            </div>
+            <div className={styles.modalContent}>
+              <p>{validationMessage}</p>
+              <p>Please join or select a group first.</p>
+            </div>
+            <div className={styles.modalActions}>
+              <button 
+                className={styles.primaryButton} 
+                onClick={() => setShowValidationDialog(false)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {showPollModal && (
         <div className={styles.modalOverlay} onClick={() => {
           setShowPollModal(false);

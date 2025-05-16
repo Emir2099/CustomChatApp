@@ -10,6 +10,8 @@ export default function ActionBar() {
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [announcement, setAnnouncement] = useState('');
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
 
   const handleCreatePoll = async (e) => {
     e.preventDefault();
@@ -28,6 +30,24 @@ export default function ActionBar() {
       setAnnouncement('');
       setShowAnnouncementModal(false);
     }
+  };
+
+  const openPollModal = () => {
+    if (!currentChat) {
+      setValidationMessage("You need to be in a group to create a poll.");
+      setShowValidationDialog(true);
+      return;
+    }
+    setShowPollModal(true);
+  };
+
+  const openAnnouncementModal = () => {
+    if (!currentChat) {
+      setValidationMessage("You need to be in a group to make an announcement.");
+      setShowValidationDialog(true);
+      return;
+    }
+    setShowAnnouncementModal(true);
   };
 
   if (!currentChat) return null;
@@ -49,7 +69,7 @@ export default function ActionBar() {
       <div className={styles.actions}>
         <button 
           className={styles.actionButton}
-          onClick={() => setShowAnnouncementModal(true)}
+          onClick={openAnnouncementModal}
           title="Make Announcement"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -58,7 +78,7 @@ export default function ActionBar() {
         </button>
         <button 
           className={styles.actionButton}
-          onClick={() => setShowPollModal(true)}
+          onClick={openPollModal}
           title="Create Poll"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -87,6 +107,30 @@ export default function ActionBar() {
           <button onClick={() => {/* Add functionality */}}>
             Group Settings
           </button>
+        </div>
+      )}
+
+      {/* Validation Dialog */}
+      {showValidationDialog && (
+        <div className={styles.modalOverlay} onClick={() => setShowValidationDialog(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>No Group Selected</h2>
+              <button className={styles.closeButton} onClick={() => setShowValidationDialog(false)}>×</button>
+            </div>
+            <div className={styles.modalContent}>
+              <p>{validationMessage}</p>
+              <p>Please join or select a group first.</p>
+            </div>
+            <div className={styles.modalActions}>
+              <button 
+                className={styles.primaryButton} 
+                onClick={() => setShowValidationDialog(false)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

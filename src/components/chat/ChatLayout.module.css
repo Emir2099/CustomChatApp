@@ -280,6 +280,44 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modalHeader h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  color: #111827;
+}
+
+.modalContent {
+  margin-bottom: 20px;
+}
+
+.modalContent p {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
 .input,
 .textarea {
   width: 100%;

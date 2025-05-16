@@ -80,6 +80,17 @@
   cursor: pointer;
 }
 
+.modalContent {
+  margin-bottom: 20px;
+}
+
+.modalContent p {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
 .modal form {
   display: flex;
   flex-direction: column;
