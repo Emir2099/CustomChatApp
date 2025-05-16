@@ -1169,7 +1169,7 @@ export default function ChatArea() {
       );
     }
     
-    // For own messages, show edit, delete, and reply buttons
+    // For own messages, show only edit and delete buttons (removed reply button)
     return (
       <div className={styles.messageOptions}>
         <button 
@@ -1191,15 +1191,6 @@ export default function ChatArea() {
             <path d="M3 6h18" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M10 11v6M14 11v6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button 
-          className={styles.messageOptionButton}
-          onClick={() => handleReply(message)}
-          title="Reply to message"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
       </div>
@@ -1563,37 +1554,41 @@ export default function ChatArea() {
                           </span>
                           
                           {renderMessageOptions(message)}
+                          
+                          {/* reaction button that appears on hover */}
+                          <button 
+                            className={styles.addReactionHoverButton}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Find the MessageReactions component and trigger its panel
+                              const reactionsElem = document.querySelector(`[data-message-id="${message.id}"]`);
+                              if (reactionsElem) {
+                                const event = new CustomEvent('showReactionPanel');
+                                reactionsElem.dispatchEvent(event);
+                              }
+                            }}
+                            title="Add reaction"
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                            </svg>
+                          </button>
+                          
+                          {/* reply button that appears on hover */}
+                          <button 
+                            className={styles.replyButton}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReply(message);
+                            }}
+                            title="Reply to message"
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
                         </div>
                       )}
-                      
-                      {/* Add reaction button that appears on hover */}
-                      <button 
-                        className={styles.addReactionHoverButton}
-                        onClick={() => {
-                          // Find the MessageReactions component and trigger its panel
-                          const reactionsElem = document.querySelector(`[data-message-id="${message.id}"]`);
-                          if (reactionsElem) {
-                            const event = new CustomEvent('showReactionPanel');
-                            reactionsElem.dispatchEvent(event);
-                          }
-                        }}
-                        title="Add reaction"
-                      >
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
-                        </svg>
-                      </button>
-                      
-                      {/* Add reply button that appears on hover */}
-                      <button 
-                        className={styles.replyButton}
-                        onClick={() => handleReply(message)}
-                        title="Reply to message"
-                      >
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 10h10a6 6 0 016 6v2m-6-8l-4-4m4 4l-4 4" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
                     </div>
                     <MessageReactions message={message} />
                   </React.Fragment>
