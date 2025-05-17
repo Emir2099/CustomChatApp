@@ -70,12 +70,14 @@ export default function ChatLayout() {
 
   const handleCreatePoll = async (pollData) => {
     if (!currentChat) return;
+    if (currentChat.type === 'private') return;
     await createPoll(pollData.question, pollData.options);
     setShowPollModal(false);
   };
 
   const handleCreateAnnouncement = async (announcement) => {
     if (!currentChat) return;
+    if (currentChat.type === 'private') return;
     await createAnnouncement(announcement);
     setShowAnnouncementModal(false);
   };
@@ -86,6 +88,11 @@ export default function ChatLayout() {
       setShowValidationDialog(true);
       return;
     }
+    if (currentChat.type === 'private') {
+      setValidationMessage("Polls can only be created in group chats, not in direct messages.");
+      setShowValidationDialog(true);
+      return;
+    }
     setCurrentView('polls');
     setShowPollModal(true);
   };
@@ -93,6 +100,11 @@ export default function ChatLayout() {
   const openAnnouncementModal = () => {
     if (!currentChat) {
       setValidationMessage("You need to be in a group to make an announcement.");
+      setShowValidationDialog(true);
+      return;
+    }
+    if (currentChat.type === 'private') {
+      setValidationMessage("Announcements can only be made in group chats, not in direct messages.");
       setShowValidationDialog(true);
       return;
     }
@@ -196,12 +208,12 @@ export default function ChatLayout() {
         <div className={styles.modalOverlay} onClick={() => setShowValidationDialog(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h2>No Group Selected</h2>
+              <h2>{currentChat?.type === 'private' ? "Feature Not Available" : "No Group Selected"}</h2>
               <button className={styles.closeButton} onClick={() => setShowValidationDialog(false)}>×</button>
             </div>
             <div className={styles.modalContent}>
               <p>{validationMessage}</p>
-              <p>Please join or select a group first.</p>
+              {!currentChat && <p>Please join or select a group first.</p>}
             </div>
             <div className={styles.modalActions}>
               <button 
