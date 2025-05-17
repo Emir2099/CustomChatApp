@@ -530,6 +530,30 @@ export function ChatProvider({ children }) {
     if (!currentChat?.id || !user) return;
 
     try {
+      // Check if this is a direct message chat
+      if (currentChat.type === 'private') {
+        // Find the other user's ID
+        let otherUserId = null;
+        
+        if (currentChat.participants) {
+          otherUserId = Object.keys(currentChat.participants).find(id => id !== user.uid);
+        } else if (currentChat.members) {
+          otherUserId = Object.keys(currentChat.members).find(id => id !== user.uid);
+        }
+        
+        if (otherUserId) {
+          // Check if the recipient has blocked the sender
+          const otherUserRef = ref(db, `users/${otherUserId}/blockedUsers/${user.uid}`);
+          const blockedSnapshot = await get(otherUserRef);
+          
+          if (blockedSnapshot.exists() && blockedSnapshot.val() === true) {
+            // If the recipient has blocked the sender, don't allow sending the message
+            console.log("Cannot send message: recipient has blocked you");
+            return;
+          }
+        }
+      }
+
       const messageRef = push(ref(db, `chats/${currentChat.id}/messages`));
       const message = {
         content,
@@ -585,6 +609,29 @@ export function ChatProvider({ children }) {
     // Check file type
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       throw new Error('File type not supported');
+    }
+
+    // Check if this is a direct message chat and the recipient has blocked the sender
+    if (currentChat.type === 'private') {
+      // Find the other user's ID
+      let otherUserId = null;
+      
+      if (currentChat.participants) {
+        otherUserId = Object.keys(currentChat.participants).find(id => id !== user.uid);
+      } else if (currentChat.members) {
+        otherUserId = Object.keys(currentChat.members).find(id => id !== user.uid);
+      }
+      
+      if (otherUserId) {
+        // Check if the recipient has blocked the sender
+        const otherUserRef = ref(db, `users/${otherUserId}/blockedUsers/${user.uid}`);
+        const blockedSnapshot = await get(otherUserRef);
+        
+        if (blockedSnapshot.exists() && blockedSnapshot.val() === true) {
+          // If the recipient has blocked the sender, don't allow sending the file
+          throw new Error("Cannot send file: recipient has blocked you");
+        }
+      }
     }
 
     // Generate a unique ID for this upload
@@ -1261,6 +1308,29 @@ export function ChatProvider({ children }) {
       throw new Error(`File size exceeds ${FILE_SIZE_LIMIT / (1024 * 1024)}MB limit`);
     }
 
+    // Check if this is a direct message chat and the recipient has blocked the sender
+    if (currentChat.type === 'private') {
+      // Find the other user's ID
+      let otherUserId = null;
+      
+      if (currentChat.participants) {
+        otherUserId = Object.keys(currentChat.participants).find(id => id !== user.uid);
+      } else if (currentChat.members) {
+        otherUserId = Object.keys(currentChat.members).find(id => id !== user.uid);
+      }
+      
+      if (otherUserId) {
+        // Check if the recipient has blocked the sender
+        const otherUserRef = ref(db, `users/${otherUserId}/blockedUsers/${user.uid}`);
+        const blockedSnapshot = await get(otherUserRef);
+        
+        if (blockedSnapshot.exists() && blockedSnapshot.val() === true) {
+          // If the recipient has blocked the sender, don't allow sending the voice message
+          throw new Error("Cannot send voice message: recipient has blocked you");
+        }
+      }
+    }
+
     // Generate a unique ID for this upload
     const uploadId = Math.random().toString(36).substring(2, 15);
 
@@ -1534,6 +1604,54 @@ export function ChatProvider({ children }) {
     }
   }, [currentChat, user]);
 
+  // Function to block a user
+  const blockUser = useCallback(async (userIdToBlock) => {
+    if (!user?.uid || !userIdToBlock) return;
+
+    try {
+      // Add the user to the blocked list
+      const updates = {};
+      updates[`users/${user.uid}/blockedUsers/${userIdToBlock}`] = true;
+      await update(ref(db), updates);
+      
+      // Update local state
+      console.log(`User ${userIdToBlock} has been blocked`);
+      
+      return true;
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      throw error;
+    }
+  }, [user]);
+
+  // Function to unblock a user
+  const unblockUser = useCallback(async (userIdToUnblock) => {
+    if (!user?.uid || !userIdToUnblock) return;
+
+    try {
+      // Remove the user from the blocked list
+      const updates = {};
+      updates[`users/${user.uid}/blockedUsers/${userIdToUnblock}`] = null;
+      await update(ref(db), updates);
+      
+      // Update local state
+      console.log(`User ${userIdToUnblock} has been unblocked`);
+      
+      return true;
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      throw error;
+    }
+  }, [user]);
+
+  // Function to check if a user is blocked
+  const isUserBlocked = useCallback((userId) => {
+    if (!user?.uid || !userId || !allUsers?.[user.uid]?.blockedUsers) return false;
+    
+    // Check if userId is in current user's blocked list
+    return !!allUsers[user.uid]?.blockedUsers?.[userId];
+  }, [user, allUsers]);
+
   // Provide context with all memoized values and functions
   const contextValue = {
     currentChat,
@@ -1577,7 +1695,10 @@ export function ChatProvider({ children }) {
     deleteMessage,
     isCurrentUserAdmin,
     logs,
-    fetchChatLogs
+    fetchChatLogs,
+    blockUser,
+    unblockUser,
+    isUserBlocked
   };
 
   return (

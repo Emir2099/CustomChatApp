@@ -9,29 +9,33 @@ import MessageSearch from './MessageSearch';
 import VoiceRecorder from './VoiceRecorder';
 import AudioPlayer from './AudioPlayer';
 import LogViewer from './LogViewer';
+import { ref, get } from 'firebase/database';
+import { db } from '../../config/firebase';
 
 export default function ChatArea() {
-  const { 
-    currentChat, 
-    messages, 
-    sendMessage, 
-    sendFileMessage, 
-    sendVoiceMessage,
-    fileUploads,
-    handleVote, 
-    markChatAsRead,
-    FILE_SIZE_LIMIT,
-    ALLOWED_FILE_TYPES,
-    typingUsers,
-    setTypingStatus,
-    loadMoreMessages,
-    hasMoreMessages,
-    loading,
-    editMessage,
-    deleteMessage,
-    setMessages,
-    isCurrentUserAdmin
-  } = useChat();
+    const {    
+      currentChat,    
+      messages,    
+      sendMessage,     
+      sendFileMessage,     
+      sendVoiceMessage,    
+      fileUploads,    
+      handleVote,     
+      markChatAsRead,    
+      FILE_SIZE_LIMIT,    
+      ALLOWED_FILE_TYPES,    
+      typingUsers,    
+      setTypingStatus,    
+      loadMoreMessages,    
+      hasMoreMessages,    
+      loading,    
+      editMessage,    
+      deleteMessage,    
+      setMessages,    
+      isCurrentUserAdmin,    
+      isUserBlocked  
+    } = useChat();
+    
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
   const [fileUploadError, setFileUploadError] = useState('');
@@ -45,6 +49,10 @@ export default function ChatArea() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   // Add reply message state
   const [replyingTo, setReplyingTo] = useState(null);
+  // Add block state
+  const [otherUserId, setOtherUserId] = useState(null);
+  const [isOtherUserBlocked, setIsOtherUserBlocked] = useState(false);
+  
   const fileInputRef = useRef(null);
   const messageListRef = useRef(null);
   const editInputRef = useRef(null);
@@ -64,6 +72,38 @@ export default function ChatArea() {
   // Add search panel state
   const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [showLogViewer, setShowLogViewer] = useState(false);
+
+  // Get the other user ID in direct message chats
+  useEffect(() => {
+    if (!currentChat || !user || currentChat.type !== 'private') {
+      setOtherUserId(null);
+      return;
+    }
+
+    // Find the other user in the conversation
+    let foundUserId = null;
+    
+    if (currentChat.participants) {
+      foundUserId = Object.keys(currentChat.participants).find(id => id !== user.uid);
+    }
+
+    if (!foundUserId && currentChat.members) {
+      foundUserId = Object.keys(currentChat.members).find(id => id !== user.uid);
+    }
+
+    setOtherUserId(foundUserId);
+  }, [currentChat, user]);
+
+  // Check if the other user is blocked
+  useEffect(() => {
+    if (!otherUserId || !isUserBlocked) {
+      setIsOtherUserBlocked(false);
+      return;
+    }
+
+    const blocked = isUserBlocked(otherUserId);
+    setIsOtherUserBlocked(blocked);
+  }, [otherUserId, isUserBlocked]);
 
   // Force check if scrolling is actually needed
   const checkIfScrollNeeded = () => {
@@ -385,7 +425,34 @@ export default function ChatArea() {
     
     // Clear typing status
     setTypingStatus(false);
-    
+
+    // Check if this is a direct message and get the other user's ID
+    if (currentChat.type === 'private' && otherUserId) {
+      // Check if the recipient has blocked the sender
+      const otherUserRef = ref(db, `users/${otherUserId}/blockedUsers/${user.uid}`);
+      get(otherUserRef).then((blockedSnapshot) => {
+        if (blockedSnapshot.exists() && blockedSnapshot.val() === true) {
+          // Show error message if blocked
+          setFileUploadError("You cannot send messages as you have been blocked by this user.");
+          setTimeout(() => setFileUploadError(''), 5000);
+          return;
+        } else {
+          // Not blocked, continue with sending the message
+          sendMessageNow(message);
+        }
+      }).catch(error => {
+        console.error("Error checking blocked status:", error);
+        // If there's an error checking status, try to send anyway
+        sendMessageNow(message);
+      });
+    } else {
+      // Not a direct message, just send
+      sendMessageNow(message);
+    }
+  };
+
+  // Helper function to actually send the message
+  const sendMessageNow = (message) => {
     // Mark as recently sent to prevent button from showing
     recentlySentMessageRef.current = true;
     
@@ -489,6 +556,19 @@ export default function ChatArea() {
     try {
       // Prepare for upload - clear any previous errors
       setFileUploadError('');
+      
+      // Check if this is a direct message and if the current user has been blocked
+      if (currentChat.type === 'private' && otherUserId) {
+        const otherUserRef = ref(db, `users/${otherUserId}/blockedUsers/${user.uid}`);
+        const blockedSnapshot = await get(otherUserRef);
+        
+        if (blockedSnapshot.exists() && blockedSnapshot.val() === true) {
+          // Show error message if blocked
+          setFileUploadError("You cannot send files as you have been blocked by this user.");
+          setTimeout(() => setFileUploadError(''), 5000);
+          return;
+        }
+      }
       
       // Apply client-side compression if it's an image
       let processedFile = file;
@@ -985,6 +1065,22 @@ export default function ChatArea() {
     if (!currentChat?.id || !user) return;
     
     try {
+      // Check if this is a direct message and if the current user has been blocked
+      if (currentChat.type === 'private' && otherUserId) {
+        const otherUserRef = ref(db, `users/${otherUserId}/blockedUsers/${user.uid}`);
+        const blockedSnapshot = await get(otherUserRef);
+        
+        if (blockedSnapshot.exists() && blockedSnapshot.val() === true) {
+          // Show error message if blocked
+          setFileUploadError("You cannot send voice messages as you have been blocked by this user.");
+          setTimeout(() => setFileUploadError(''), 5000);
+          
+          // Dismiss the voice recorder
+          handleCancelVoice();
+          return;
+        }
+      }
+      
       // Set flag to prevent scroll button from appearing
       recentlySentMessageRef.current = true;
       
@@ -1447,6 +1543,17 @@ export default function ChatArea() {
         </div>
       </div>
 
+      {/* Show blocked banner if the conversation is blocked */}
+      {isOtherUserBlocked && currentChat.type === 'private' && (
+        <div className={styles.blockedBanner}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+          </svg>
+          <p>You&apos;ve blocked this user. Unblock them to send messages again.</p>
+        </div>
+      )}
+
       <div 
         className={styles.messageList} 
         ref={messageListRef} 
@@ -1764,14 +1871,16 @@ export default function ChatArea() {
                 type="text"
                 value={newMessage}
                 onChange={handleMessageChange}
-                placeholder="Type a message..."
+                placeholder={isOtherUserBlocked ? "You can't send messages to blocked users" : "Type a message..."}
                 className={styles.messageInput}
+                disabled={isOtherUserBlocked}
               />
               <button 
                 type="button" 
                 className={styles.attachButton}
                 onClick={handleFileSelect}
                 title="Attach file"
+                disabled={isOtherUserBlocked}
               >
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
@@ -1782,13 +1891,19 @@ export default function ChatArea() {
                 className={styles.attachButton}
                 onClick={toggleVoiceRecorder}
                 title="Record voice message"
+                disabled={isOtherUserBlocked}
               >
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
                   <path d="M17 12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z" />
                 </svg>
               </button>
-              <button type="submit" className={styles.sendButton} title="Send message">
+              <button 
+                type="submit" 
+                className={styles.sendButton} 
+                title="Send message"
+                disabled={isOtherUserBlocked || !newMessage.trim()}
+              >
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                 </svg>
@@ -1804,6 +1919,7 @@ export default function ChatArea() {
           onChange={handleFileUpload}
           style={{ display: 'none' }}
           accept={ALLOWED_FILE_TYPES.join(',')}
+          disabled={isOtherUserBlocked}
         />
       </form>
 

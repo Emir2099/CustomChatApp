@@ -2606,3 +2606,27 @@
 .message:not(.sent):hover .messageOptions .messageOptionButton {
   display: none; 
 }
+
+
+.blockedBanner {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: rgba(244, 63, 94, 0.08);
+  border-bottom: 1px solid rgba(244, 63, 94, 0.2);
+  gap: 12px;
+}
+
+.blockedBanner svg {
+  width: 18px;
+  height: 18px;
+  color: rgb(244, 63, 94);
+  flex-shrink: 0;
+}
+
+.blockedBanner p {
+  margin: 0;
+  font-size: 14px;
+  color: rgb(244, 63, 94);
+  font-weight: 500;
+}

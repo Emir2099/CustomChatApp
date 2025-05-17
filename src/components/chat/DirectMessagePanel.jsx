@@ -56,10 +56,14 @@ const formatLastActive = (timestamp) => {
 };
 
 export default function DirectMessagePanel() {
-  const { currentChat, allUsers, typingUsers } = useChat();
+  const { currentChat, allUsers, typingUsers, blockUser, unblockUser, isUserBlocked } = useChat();
   const { user } = useAuth();
   const [otherUser, setOtherUser] = useState(null);
   const [otherUserId, setOtherUserId] = useState(null);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState(false);
   
   // Get the other user in the conversation
   useEffect(() => {
@@ -101,8 +105,48 @@ export default function DirectMessagePanel() {
     }
   }, [currentChat, user, allUsers]);
 
+  // Check if the user is blocked
+  useEffect(() => {
+    if (!otherUserId || !isUserBlocked) return;
+
+    const blocked = isUserBlocked(otherUserId);
+    setIsBlocked(blocked);
+  }, [otherUserId, isUserBlocked, allUsers]);
+
   // Check if the other user is actually typing using typingUsers from context
   const isTyping = otherUserId && typingUsers && typingUsers[currentChat?.id]?.[otherUserId];
+
+  const handleBlockUser = async () => {
+    if (!otherUserId || actionInProgress) return;
+    
+    setActionInProgress(true);
+    
+    try {
+      await blockUser(otherUserId);
+      setIsBlocked(true);
+      setShowBlockConfirm(false);
+    } catch (error) {
+      console.error("Error blocking user:", error);
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!otherUserId || actionInProgress) return;
+    
+    setActionInProgress(true);
+    
+    try {
+      await unblockUser(otherUserId);
+      setIsBlocked(false);
+      setShowUnblockConfirm(false);
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+    } finally {
+      setActionInProgress(false);
+    }
+  };
 
   if (!currentChat || currentChat.type !== 'private' || !otherUser) {
     return (
@@ -208,6 +252,95 @@ export default function DirectMessagePanel() {
             <p>Your conversations are encrypted and private</p>
           </div>
         </div>
+        
+        {/* Block/Unblock section */}
+        <div className={styles.blockSection}>
+          {isBlocked ? (
+            <>
+              <div className={styles.blockedBanner}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                </svg>
+                <p>You've blocked this user</p>
+              </div>
+              
+              <button 
+                className={styles.unblockButton}
+                onClick={() => setShowUnblockConfirm(true)}
+                disabled={actionInProgress}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Unblock User
+              </button>
+            </>
+          ) : (
+            <button 
+              className={styles.blockButton}
+              onClick={() => setShowBlockConfirm(true)}
+              disabled={actionInProgress}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              Block User
+            </button>
+          )}
+        </div>
+
+        {showBlockConfirm && (
+          <div className={styles.confirmationDialog}>
+            <div className={styles.confirmationContent}>
+              <h4>Block {otherUser.displayName || "User"}?</h4>
+              <p>They won't be able to contact you, and you won't see their messages.</p>
+              <div className={styles.confirmButtons}>
+                <button 
+                  className={styles.cancelButton}
+                  onClick={() => setShowBlockConfirm(false)}
+                  disabled={actionInProgress}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className={styles.confirmButton}
+                  onClick={handleBlockUser}
+                  disabled={actionInProgress}
+                >
+                  {actionInProgress ? 'Blocking...' : 'Block'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showUnblockConfirm && (
+          <div className={styles.confirmationDialog}>
+            <div className={styles.confirmationContent}>
+              <h4>Unblock {otherUser.displayName || "User"}?</h4>
+              <p>They will be able to contact you again, and you'll see their messages.</p>
+              <div className={styles.confirmButtons}>
+                <button 
+                  className={styles.cancelButton}
+                  onClick={() => setShowUnblockConfirm(false)}
+                  disabled={actionInProgress}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className={styles.confirmButton}
+                  onClick={handleUnblockUser}
+                  disabled={actionInProgress}
+                >
+                  {actionInProgress ? 'Unblocking...' : 'Unblock'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className={styles.messagesSummary}>
           <div className={styles.bubbleAnimation}>

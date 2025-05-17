@@ -574,4 +574,178 @@
   50% {
     box-shadow: 0 0 0 5px rgba(239, 68, 68, 0);
   }
+}
+
+
+.blockSection {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.blockedBanner {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: rgba(244, 63, 94, 0.08);
+  border-radius: 8px;
+  border-left: 3px solid rgba(244, 63, 94, 0.6);
+  margin-bottom: 5px;
+}
+
+.blockedBanner svg {
+  width: 18px;
+  height: 18px;
+  color: rgb(244, 63, 94);
+  margin-right: 10px;
+}
+
+.blockedBanner p {
+  margin: 0;
+  font-size: 14px;
+  color: rgb(244, 63, 94);
+  font-weight: 500;
+}
+
+.blockButton, 
+.unblockButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  border: none;
+  gap: 8px;
+}
+
+.blockButton {
+  background-color: rgba(244, 63, 94, 0.1);
+  color: rgb(244, 63, 94);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+}
+
+.unblockButton {
+  background-color: rgba(99, 102, 241, 0.1);
+  color: rgb(99, 102, 241);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.blockButton svg,
+.unblockButton svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2px;
+}
+
+.blockButton:hover {
+  background-color: rgba(244, 63, 94, 0.15);
+}
+
+.unblockButton:hover {
+  background-color: rgba(99, 102, 241, 0.15);
+}
+
+.blockButton:disabled,
+.unblockButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirmationDialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.confirmationContent {
+  background-color: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 380px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-in-out;
+}
+
+.confirmationContent h4 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.confirmationContent p {
+  margin: 0 0 20px 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.confirmButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancelButton,
+.confirmButton {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.cancelButton {
+  background-color: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.confirmButton {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+}
+
+.cancelButton:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.confirmButton:hover {
+  background-color: #dc2626;
+}
+
+.cancelButton:disabled,
+.confirmButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 } 
