@@ -7,6 +7,7 @@ import { useChat } from '../../contexts/ChatContext';
 import styles from './ChatLayout.module.css';
 import GroupInfo from './GroupInfo';
 import MembersList from './MembersList';
+import DirectMessagePanel from './DirectMessagePanel';
 import { getDatabase, ref, update } from 'firebase/database';
 
 export default function ChatLayout() {
@@ -197,8 +198,14 @@ export default function ChatLayout() {
           <Sidebar chatTypeView={chatTypeView} />
           <ChatArea />
           <div className={styles.rightPanel}>
-            <GroupInfo />
-            <MembersList />
+            {currentChat && currentChat.type === 'private' ? (
+              <DirectMessagePanel />
+            ) : (
+              <>
+                <GroupInfo />
+                <MembersList />
+              </>
+            )}
           </div>
         </main>
       </div>
