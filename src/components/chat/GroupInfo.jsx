@@ -21,11 +21,13 @@ export default function GroupInfo() {
   const [creator, setCreator] = useState(null);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showLinkCopied, setShowLinkCopied] = useState(false);
   const iconInputRef = useRef(null);
 
   useEffect(() => {
     setCurrentInviteLink('');
     setCopySuccess(false);
+    setShowLinkCopied(false);
   }, [currentChat?.id]);
 
   useEffect(() => {
@@ -103,6 +105,7 @@ export default function GroupInfo() {
     if (!currentChat?.id) return;
     
     setIsGeneratingLink(true);
+    setShowLinkCopied(false);
     try {
       const newLink = await generateInviteLink(currentChat.id);
       setCurrentInviteLink(newLink);
@@ -117,7 +120,17 @@ export default function GroupInfo() {
     try {
       await navigator.clipboard.writeText(currentInviteLink);
       setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+      setShowLinkCopied(true);
+      
+      // Reset after 2 seconds
+      setTimeout(() => {
+        setCopySuccess(false);
+        // Wait for transition to complete before hiding the link
+        setTimeout(() => {
+          setCurrentInviteLink('');
+          setShowLinkCopied(false);
+        }, 1000);
+      }, 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
@@ -241,15 +254,27 @@ export default function GroupInfo() {
       </div>
 
       <div className={styles.inviteSection}>
-        <button 
-          onClick={handleGenerateLink}
-          disabled={isGeneratingLink}
-          className={styles.generateButton}
-        >
-          {isGeneratingLink ? 'Generating...' : 'Generate Invite Link'}
-        </button>
-        
-        {currentInviteLink && (
+        {!currentInviteLink && !showLinkCopied ? (
+          <button 
+            onClick={handleGenerateLink}
+            disabled={isGeneratingLink}
+            className={styles.generateButton}
+          >
+            {isGeneratingLink ? 'Generating...' : 'Generate Invite Link'}
+          </button>
+        ) : showLinkCopied ? (
+          <button 
+            className={`${styles.generateButton} ${styles.copiedButton}`}
+            onClick={() => setShowLinkCopied(false)}
+          >
+            <span className={styles.copiedText}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Link Copied!
+            </span>
+          </button>
+        ) : (
           <div className={styles.inviteLinkContainer}>
             <input 
               type="text" 
@@ -259,9 +284,15 @@ export default function GroupInfo() {
             />
             <button 
               onClick={handleCopyLink}
-              className={styles.copyButton}
+              className={`${styles.copyButton} ${copySuccess ? styles.copied : ''}`}
             >
-              {copySuccess ? 'Copied!' : 'Copy'}
+              {copySuccess ? (
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                'Copy'
+              )}
             </button>
           </div>
         )}

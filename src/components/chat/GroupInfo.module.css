@@ -271,10 +271,39 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+}
+
+.copyButton.copied {
+  background: #10b981; 
+  color: white;
+  border-color: #10b981;
 }
 
 .copyButton:hover {
   background: #e5e7eb;
+}
+
+.copyButton.copied:hover {
+  background: #0ea271;
+}
+
+.copiedButton {
+  background: #10b981 !important; 
+  animation: scaleSuccess 0.3s ease-in-out, fadeInOut 3s ease-in-out;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.copiedText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 @keyframes fadeIn {
@@ -286,4 +315,17 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes scaleSuccess {
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0.9; }
 } 
