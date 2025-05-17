@@ -2185,6 +2185,8 @@
   right: auto;
   left: 0;
   margin-left: -36px;
+  /* Remove transition delay for faster hiding */
+  transition: opacity 0s ease, visibility 0s ease;
 }
 
 /* Show message options on hover */
@@ -2547,7 +2549,7 @@
   color: #6366f1;
   border: 1px solid #e5e7eb;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s ease, display 0s ease;
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -2595,4 +2597,12 @@
   border-radius: 50%;
   background-color: rgba(99, 102, 241, 0.7);
   animation: pulse 1.5s infinite;
+}
+
+._messageOptionButton_c1bcy_4391 {
+  display: none; 
+}
+
+.message:not(.sent):hover .messageOptions .messageOptionButton {
+  display: none; 
 }
