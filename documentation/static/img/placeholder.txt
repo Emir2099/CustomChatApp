@@ -1,0 +1,26 @@
+# Documentation Images
+
+This folder should contain all images used in the documentation.
+
+## Required Images:
+
+1. **logo.svg** - The logo used in the header
+2. **favicon.ico** - The favicon for the website
+3. **chat-app-preview.png** - A screenshot of the application
+4. **architecture-diagram.png** - A diagram showing the application architecture
+5. **block-button-ui.png** - Screenshot of the block button UI
+6. **blocked-banner.png** - Screenshot of the blocked banner
+7. **chatarea-component.png** - Screenshot of the ChatArea component
+
+## Image Guidelines:
+
+- All screenshots should be taken with the application in a clean state
+- Use a reasonable resolution (1200-1500px wide recommended)
+- Compress images to reduce file size
+- Use descriptive file names (kebab-case)
+- Add proper alt text in markdown files
+
+## Adding New Images:
+
+1. Place the image file in this directory
+2. Reference it in your markdown with: `![Alt Text](/img/your-image-name.png)` 
