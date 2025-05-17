@@ -10,9 +10,8 @@ import PropTypes from 'prop-types';
 const Sidebar = ({ chatTypeView = 'group' }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const { chats, currentChat, clearInviteLink, handleChatSelect, chatsLoading } = useChat();
-  // Using useAuth hook to ensure the auth context is initialized, even if we don't directly use user here
-  useAuth(); 
+  const { chats, currentChat, clearInviteLink, handleChatSelect, chatsLoading, allUsers } = useChat();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [overflowingChats, setOverflowingChats] = useState({});
   const chatItemRefs = useRef({});
@@ -72,6 +71,97 @@ const Sidebar = ({ chatTypeView = 'group' }) => {
   const filteredChats = searchFilteredChats.filter(chat => 
     chatTypeView === 'group' ? chat.type === 'group' : chat.type === 'private'
   );
+
+  // Helper to get the other user's photo in direct messages
+  const getDirectMessagePhoto = (chat) => {
+    if (!chat || chat.type !== 'private' || !user || !allUsers) return null;
+
+    // Try to find other user by name or email
+    const otherUser = Object.values(allUsers).find(u => 
+      (u.displayName === chat.name || u.email === chat.name) && u.uid !== user.uid
+    );
+    
+    if (otherUser && otherUser.photoURL) {
+      return otherUser.photoURL;
+    }
+
+    // If we couldn't find by name, try to find by participants or members
+    if (chat.participants) {
+      const otherUserId = Object.keys(chat.participants).find(id => id !== user.uid);
+      if (otherUserId && allUsers[otherUserId]?.photoURL) {
+        return allUsers[otherUserId].photoURL;
+      }
+    }
+
+    if (chat.members) {
+      const otherUserId = Object.keys(chat.members).find(id => id !== user.uid);
+      if (otherUserId && allUsers[otherUserId]?.photoURL) {
+        return allUsers[otherUserId].photoURL;
+      }
+    }
+
+    return chat.photoURL || null; // Use chat's photoURL as fallback
+  };
+  
+  // Get the status of the other user in a direct message
+  const getOtherUserStatus = (chat) => {
+    if (!chat || chat.type !== 'private' || !user || !allUsers) return 'offline';
+
+    // First try to find other user by name/email
+    const otherUser = Object.values(allUsers).find(u => 
+      (u.displayName === chat.name || u.email === chat.name) && u.uid !== user.uid
+    );
+    
+    if (otherUser) {
+      // Map status values to standard format
+      if (otherUser.status === 'available') return 'online';
+      if (otherUser.status) return otherUser.status.toLowerCase();
+      if (otherUser.onlineStatus === true) return 'online';
+    }
+    
+    // Try to find by participants/members
+    let otherUserId;
+    
+    if (chat.participants) {
+      otherUserId = Object.keys(chat.participants).find(id => id !== user.uid);
+      if (otherUserId && allUsers[otherUserId]) {
+        const status = allUsers[otherUserId].status;
+        if (status === 'available') return 'online';
+        if (status) return status.toLowerCase();
+        if (allUsers[otherUserId].onlineStatus === true) return 'online';
+      }
+    }
+    
+    if (!otherUserId && chat.members) {
+      otherUserId = Object.keys(chat.members).find(id => id !== user.uid);
+      if (otherUserId && allUsers[otherUserId]) {
+        const status = allUsers[otherUserId].status;
+        if (status === 'available') return 'online';
+        if (status) return status.toLowerCase();
+        if (allUsers[otherUserId].onlineStatus === true) return 'online';
+      }
+    }
+    
+    return 'offline';
+  };
+  
+  // Get the appropriate status color based on user status
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'online':
+      case 'available':
+        return '#10b981'; // green
+      case 'away':
+        return '#f59e0b'; // yellow/amber
+      case 'busy':
+      case 'do not disturb':
+      case 'in a meeting':
+        return '#ef4444'; // red
+      case 'offline':
+      default:
+        return '#9ca3af'; // gray
+    }
+  };
 
   return (
     <div className={styles.sidebar}>
@@ -155,15 +245,31 @@ const Sidebar = ({ chatTypeView = 'group' }) => {
                     )}
                   </div>
                 ) : (
-                  <div className={styles.userAvatar}>
-                    {chat.photoURL ? (
-                      <img src={chat.photoURL} alt={chat.name} />
-                    ) : (
-                      <div className={styles.groupInitial}>
-                        {chat.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className={chat.onlineStatus ? `${styles.onlineIndicator} ${styles.online}` : styles.onlineIndicator}></div>
+                  <div className={styles.avatarContainer} style={{ position: 'relative' }}>
+                    <div className={styles.userAvatar}>
+                      {getDirectMessagePhoto(chat) ? (
+                        <img src={getDirectMessagePhoto(chat)} alt={chat.name} />
+                      ) : (
+                        <div className={styles.groupInitial}>
+                          {chat.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Custom online indicator with inline styles only */}
+                    <span
+                      style={{
+                        position: 'absolute',
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '50%',
+                        backgroundColor: getStatusColor(getOtherUserStatus(chat)),
+                        border: '2px solid white',
+                        bottom: '-2px',
+                        right: '-2px',
+                        pointerEvents: 'none'
+                      }}
+                    />
                   </div>
                 )}
               </div>
