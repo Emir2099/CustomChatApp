@@ -1,7 +1,7 @@
 import Sidebar from './Sidebar';
 import ChatArea from './ChatArea';
 import UserProfile from './UserProfile';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChat } from '../../contexts/ChatContext';
 import styles from './ChatLayout.module.css';
@@ -25,6 +25,13 @@ export default function ChatLayout() {
   const [announcement, setAnnouncement] = useState('');
   const chatAreaRef = useRef(null);
   const [chatTypeView, setChatTypeView] = useState('group'); // 'group' or 'direct'
+
+  // Automatically update chatTypeView when a direct message is selected
+  useEffect(() => {
+    if (currentChat && currentChat.type === 'private') {
+      setChatTypeView('direct');
+    }
+  }, [currentChat]);
 
   const handleServerIconChange = async (e) => {
     const file = e.target.files?.[0];
