@@ -5,12 +5,14 @@ import { useChat } from '../../contexts/ChatContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ChatListSkeleton from './ChatListSkeleton';
+import PropTypes from 'prop-types';
 
-const Sidebar = () => {
+const Sidebar = ({ chatTypeView = 'group' }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const { chats, currentChat, clearInviteLink, handleChatSelect, chatsLoading } = useChat();
-  useAuth(); // We need auth context but don't directly use the user variable
+  // Using useAuth hook to ensure the auth context is initialized, even if we don't directly use user here
+  useAuth(); 
   const navigate = useNavigate();
   const [overflowingChats, setOverflowingChats] = useState({});
   const chatItemRefs = useRef({});
@@ -61,8 +63,14 @@ const Sidebar = () => {
     };
   }, [chats]);
 
-  const filteredChats = chats.filter(chat => 
+  // Filter chats based on search query
+  const searchFilteredChats = chats.filter(chat => 
     chat && chat.name && chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  // Further filter chats by type (group or private)
+  const filteredChats = searchFilteredChats.filter(chat => 
+    chatTypeView === 'group' ? chat.type === 'group' : chat.type === 'private'
   );
 
   return (
@@ -82,7 +90,7 @@ const Sidebar = () => {
       <div className={styles.searchContainer}>
         <input
           type="text"
-          placeholder="Search conversations..."
+          placeholder={`Search ${chatTypeView === 'group' ? 'groups' : 'messages'}...`}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className={styles.searchInput}
@@ -101,13 +109,34 @@ const Sidebar = () => {
       <div className={`${styles.chatList} ${shouldShowSkeleton ? styles.loading : ''}`}>
         {shouldShowSkeleton ? (
           <ChatListSkeleton count={6} />
+        ) : filteredChats.length === 0 ? (
+          <div className={styles.emptyListMessage}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={styles.emptyIcon}>
+              {chatTypeView === 'private' ? (
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+              ) : (
+                <>
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 010 7.75"></path>
+                </>
+              )}
+            </svg>
+            <p>
+              {chatTypeView === 'private' 
+                ? 'No direct messages yet. Start a conversation by clicking on a user profile.' 
+                : 'No group chats found. Create a new group to get started.'}
+            </p>
+          </div>
         ) : (
           filteredChats.map(chat => (
             <div 
               key={chat.id} 
               className={`${styles.chatItem} 
                 ${chat.unreadCount > 0 ? styles.unread : ''} 
-                ${currentChat?.id === chat.id ? styles.active : ''}`}
+                ${currentChat?.id === chat.id ? styles.active : ''}
+                ${chat.type === 'private' ? styles.privateChat : styles.groupChat}`}
               onClick={() => onChatSelect(chat)}
               ref={el => chatItemRefs.current[chat.id] = el}
             >
@@ -126,16 +155,29 @@ const Sidebar = () => {
                     )}
                   </div>
                 ) : (
-                  <img src={chat.photoURL || '/default-avatar.png'} alt={chat.name} />
+                  <div className={styles.userAvatar}>
+                    {chat.photoURL ? (
+                      <img src={chat.photoURL} alt={chat.name} />
+                    ) : (
+                      <div className={styles.groupInitial}>
+                        {chat.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className={chat.onlineStatus ? `${styles.onlineIndicator} ${styles.online}` : styles.onlineIndicator}></div>
+                  </div>
                 )}
               </div>
               
               <div className={styles.chatInfo}>
                 <div className={styles.chatHeader}>
                   <h3>{chat.name}</h3>
-                  {chat.type === 'group' && (
+                  {chat.type === 'group' ? (
                     <span className={styles.memberCount}>
                       {chat.memberCount || 0} members
+                    </span>
+                  ) : (
+                    <span className={styles.directChat}>
+                      Direct Message
                     </span>
                   )}
                 </div>
@@ -208,6 +250,10 @@ const Sidebar = () => {
       )}
     </div>
   );
+};
+
+Sidebar.propTypes = {
+  chatTypeView: PropTypes.string
 };
 
 export default Sidebar; 

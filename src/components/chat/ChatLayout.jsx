@@ -19,11 +19,12 @@ export default function ChatLayout() {
   const { user } = useAuth();
   const { currentChat, createPoll, createAnnouncement, setCurrentChat } = useChat();
   const [currentView, setCurrentView] = useState('');
-  const [unreadCount] = useState(0);
+  // const [unreadCount] = useState(0);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['']);
   const [announcement, setAnnouncement] = useState('');
   const chatAreaRef = useRef(null);
+  const [chatTypeView, setChatTypeView] = useState('group'); // 'group' or 'direct'
 
   const handleServerIconChange = async (e) => {
     const file = e.target.files?.[0];
@@ -112,6 +113,29 @@ export default function ChatLayout() {
           />
           <div className={styles.navItems}>
             <button 
+              className={chatTypeView === 'group' ? styles.active : ''}
+              onClick={() => setChatTypeView('group')}
+              title="Group Chats"
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path fill="currentColor" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                <circle cx="9" cy="7" r="4" fill="currentColor"></circle>
+                <path fill="currentColor" d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                <path fill="currentColor" d="M16 3.13a4 4 0 010 7.75"></path>
+              </svg>
+            </button>
+            
+            <button 
+              className={chatTypeView === 'direct' ? styles.active : ''}
+              onClick={() => setChatTypeView('direct')}
+              title="Direct Messages"
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path fill="currentColor" d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+              </svg>
+            </button>
+
+            {/* <button 
               className={currentView === 'messages' ? styles.active : ''}
               onClick={() => setCurrentView('messages')}
             >
@@ -121,7 +145,7 @@ export default function ChatLayout() {
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
               </svg>
-            </button>
+            </button> */}
             <button 
               className={currentView === 'announcements' ? styles.active : ''}
               onClick={openAnnouncementModal}
@@ -151,7 +175,7 @@ export default function ChatLayout() {
         </nav>
 
         <main className={styles.main} ref={chatAreaRef}>
-          <Sidebar />
+          <Sidebar chatTypeView={chatTypeView} />
           <ChatArea />
           <div className={styles.rightPanel}>
             <GroupInfo />

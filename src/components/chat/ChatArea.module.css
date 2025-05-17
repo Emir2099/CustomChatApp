@@ -30,9 +30,16 @@
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 14px;
   color: #6b7280;
-  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subtitle svg {
+  color: #8b5cf6;
+  margin-right: 2px;
 }
 
 .actions {

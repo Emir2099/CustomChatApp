@@ -38,7 +38,7 @@ const mapStatusToUserStatus = (status) => {
 };
 
 export default function MembersList() {
-  const { currentChat, members, removeMember } = useChat();
+  const { currentChat, members, removeMember, createPrivateChat } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTooltip, setActiveTooltip] = useState(null);
   const tooltipRef = useRef(null);
@@ -46,6 +46,7 @@ export default function MembersList() {
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [enhancedMembers, setEnhancedMembers] = useState([]);
   const userListenersRef = useRef({});
+  const [messageLoading, setMessageLoading] = useState(false);
   
   const isAdmin = currentChat?.admins?.[auth.currentUser?.uid];
 
@@ -104,6 +105,24 @@ export default function MembersList() {
   const handleRemoveMember = async (memberId) => {
     if (window.confirm('Are you sure you want to remove this member?')) {
       await removeMember(currentChat.id, memberId);
+    }
+  };
+
+  const handleStartDirectMessage = async (member) => {
+    if (member.uid === auth.currentUser?.uid) {
+      alert("You cannot start a chat with yourself.");
+      return;
+    }
+
+    try {
+      setMessageLoading(true);
+      await createPrivateChat(member.uid);
+      setActiveTooltip(null); // Close the tooltip after action
+    } catch (error) {
+      console.error('Error creating direct message:', error);
+      alert(`Failed to start conversation: ${error.message}`);
+    } finally {
+      setMessageLoading(false);
     }
   };
 
@@ -318,11 +337,19 @@ export default function MembersList() {
             )}
           </div>
           <div className={styles.tooltipFooter}>
-            <button className={styles.messageButton}>
-              <svg viewBox="0 0 24 24" width="16" height="16">
-                <path fill="currentColor" d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-              </svg>
-              Message
+            <button 
+              className={styles.messageButton}
+              onClick={() => handleStartDirectMessage(activeTooltip)}
+              disabled={messageLoading || activeTooltip.uid === auth.currentUser?.uid}
+            >
+              {messageLoading ? (
+                <span className={styles.loadingIndicator}></span>
+              ) : (
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                </svg>
+              )}
+              {messageLoading ? 'Connecting...' : 'Message'}
             </button>
           </div>
         </div>
