@@ -6,25 +6,49 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #6366f1;
+  --ifm-color-primary-dark: #585bf0;
+  --ifm-color-primary-darker: #4d50e0;
+  --ifm-color-primary-darkest: #3c3fba;
+  --ifm-color-primary-light: #7477f3;
+  --ifm-color-primary-lighter: #8386f4;
+  --ifm-color-primary-lightest: #a2a3f6;
+
   --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --docusaurus-highlighted-code-line-bg: rgba(99, 102, 241, 0.1);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-color-primary: #a5b4fc; /* Light indigo for better dark mode visibility */
+  --ifm-color-primary-dark: #818cf8;
+  --ifm-color-primary-darker: #6366f1;
+  --ifm-color-primary-darkest: #4f46e5;
+  --ifm-color-primary-light: #c7d2fe;
+  --ifm-color-primary-lighter: #e0e7ff;
+  --ifm-color-primary-lightest: #eef2ff;
+
+  --docusaurus-highlighted-code-line-bg: rgba(99, 102, 241, 0.3);
+}
+
+.profile-image {
+  width: 50%; 
+  height: 50%; 
+  border: 2px solid #6366f1; 
+  border-radius: 15px; 
+  padding: 4px; 
+  padding-top: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
+  display: flex; 
+  justify-content: left; 
+  align-items: left; 
+}
+
+.profile-image img {
+  border-radius: 10px; 
+  max-width: 100%; 
+  height: 100%; 
+  margin: 0px;
 }

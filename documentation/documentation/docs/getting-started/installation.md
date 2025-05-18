@@ -20,8 +20,8 @@ Before you begin, make sure you have the following installed:
 First, clone the repository to your local machine:
 
 ```bash
-git clone https://github.com/your-username/chat-application.git
-cd chat-application
+git clone https://github.com/Emir2099/CustomChatApp.git
+cd src
 ```
 
 If you don't want to use Git, you can also download the source code as a ZIP file from the GitHub repository.
@@ -114,4 +114,4 @@ If you encounter any issues during setup:
 - Verify that your Firebase project is correctly configured
 - Look for errors in the browser console or terminal
 
-If problems persist, please [open an issue](https://github.com/your-username/chat-application/issues) on GitHub. 
+If problems persist, please [open an issue](https://github.com/Emir2099/CustomChatApp/issues) on GitHub. 

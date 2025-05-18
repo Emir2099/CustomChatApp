@@ -61,7 +61,6 @@ const sidebars = {
         'features/chat',
         'features/file-sharing',
         'features/user-blocking',
-        'features/notifications',
         'features/group-chat',
         'features/voice-messages',
       ],

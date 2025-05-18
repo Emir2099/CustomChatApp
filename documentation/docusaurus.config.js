@@ -63,7 +63,7 @@ const config = {
         title: 'Chat App Docs',
         logo: {
           alt: 'Chat App Logo',
-          src: 'img/logo.svg',
+          src: 'img/chat-logo.svg',
         },
         items: [
           {
