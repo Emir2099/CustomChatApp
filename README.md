@@ -37,7 +37,7 @@ This project is built using React and Vite, providing a modern and efficient dev
 1. Clone the repository
 
    ```bash
-   git clone https://github.com/your-username/react-firebase-chat.git
+   git clone https://github.com/Emir2099/CustomChatApp.git
    ```
 
 2. Install dependencies

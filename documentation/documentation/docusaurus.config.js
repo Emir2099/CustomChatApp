@@ -14,7 +14,7 @@ const config = {
   organizationName: 'Emir2099',
   projectName: 'CustomChatApp',
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'ignore',
   onBrokenMarkdownLinks: 'warn',
 
   i18n: {

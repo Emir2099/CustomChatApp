@@ -7,7 +7,7 @@
     "start": "docusaurus start",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
-    "deploy": "docusaurus deploy",
+    "deploy": "cross-env USE_SSH=true docusaurus deploy --branch gh-pages",
     "predeploy": "docusaurus build",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
@@ -27,7 +27,8 @@
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.7.0",
-    "@docusaurus/types": "3.7.0"
+    "@docusaurus/types": "3.7.0",
+    "cross-env": "^7.0.3"
   },
   "browserslist": {
     "production": [
