@@ -70,5 +70,5 @@ This project is built using React and Vite, providing a modern and efficient dev
 
 ## Documentation
 
-For detailed documentation on how to use and contribute to this project, please visit the [Documentation](https://your-docusaurus-site.example.com) page.
+For detailed documentation on how to use and contribute to this project, please visit the [Documentation](https://emir2099.github.io/CustomChatApp/) page.
 
