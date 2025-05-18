@@ -31,6 +31,8 @@ const config = {
           sidebarPath: './sidebars.js',
           editUrl: 'https://github.com/Emir2099/CustomChatApp',
           showLastUpdateTime: true,
+          path: 'docs-source',    
+          routeBasePath: 'docs',
         },
         blog: false, 
         theme: {
