@@ -1,0 +1,45 @@
+name: 📚 Build & Deploy Docusaurus to /docs  
+on:
+  push:
+    branches:
+      - main   # run on every push to main
+
+jobs:
+  build_and_publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out your repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Use Node.js 18
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # 3. Install dependencies (in your Docusaurus subfolder)
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./documentation/documentation
+
+      # 4. Build the static site
+      - name: Build Docusaurus site
+        run: npm run build
+        working-directory: ./documentation/documentation
+
+      # 5. Remove old docs/ (if it exists) and move build → docs/
+      - name: Prepare docs/ folder
+        run: |
+          rm -rf docs
+          mv documentation/documentation/build docs
+
+      # 6. Commit and push the new docs/ back to main
+      - name: Commit & Push docs/
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs
+          git commit -m "ci: deploy Docusaurus to /docs on main" || echo "No changes to commit"
+          git push origin main
