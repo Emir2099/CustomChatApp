@@ -1,4 +1,8 @@
 name: 📚 Build & Deploy Docusaurus to /docs  
+
+permissions:
+  contents: write
+
 on:
   push:
     branches:
